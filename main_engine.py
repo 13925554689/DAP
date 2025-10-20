@@ -911,28 +911,44 @@ class EnhancedDAPEngine:
         finally:
             self.processing = False
 
-    def _start_api_server_background(self):
+    def _start_api_server_background(self) -> bool:
         """在后台启动API服务"""
         if self.api_server_thread and self.api_server_thread.is_alive():
             logger.info("API服务器已在运行")
-            return
+            return True
+
+        self.api_server_last_error = None
 
         def run_server():
+            start_kwargs = {
+                "host": "127.0.0.1",
+                "port": 8000,
+                "reload": False,
+                "log_level": "warning",
+            }
             try:
-                result = start_api_server(
-                    host="127.0.0.1", port=8000, reload=False, log_level="warning"
-                )
+                result = self._invoke_api_server(start_kwargs)
                 if isinstance(result, dict) and result.get("warnings"):
                     logger.warning(
                         "API server fallback active: %s", ", ".join(result["warnings"])
                     )
-            except Exception as e:
-                logger.error(f"API服务器启动失败: {e}")
+            except Exception as exc:
+                self.api_server_last_error = exc
+                logger.error("API服务器启动失败: %s", exc, exc_info=True)
 
         self.api_server_thread = threading.Thread(target=run_server, daemon=True)
         self.api_server_thread.start()
-        # 等待服务器启动
-        time.sleep(2)
+
+        # 短暂等待以捕获同步启动错误
+        time.sleep(1.0)
+        if self.api_server_last_error is not None:
+            return False
+
+        if not self.api_server_thread.is_alive():
+            logger.warning("API服务器线程已结束，可能未成功启动")
+            return False
+
+        return True
 
     def get_status(self) -> Dict[str, Any]:
         """获取当前处理状态"""
