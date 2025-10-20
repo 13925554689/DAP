@@ -472,7 +472,7 @@ class StorageManager:
         """获取当前项目用于命名的安全标识。"""
         return self._sanitize_name(self.get_current_project_id())
 
-    def _project_scoped_table_name(self, prefix: str, original_name: str) -> str:
+    def _project_scoped_table_name_modified(self, prefix: str, original_name: str) -> str:
         """基于项目范围构造存储使用的表名。"""
         return f"{prefix}_{self._project_token()}_{self._sanitize_name(original_name)}"
 
