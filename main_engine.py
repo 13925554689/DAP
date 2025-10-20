@@ -219,6 +219,7 @@ class EnhancedDAPEngine:
         self.progress = 0
         self.last_result = None
         self.api_server_thread = None
+        self.api_server_last_error = None
         self.security_manager = SecurityManager()
         self.connection_pool = get_connection_pool(self.db_path)
         self.component_fallbacks = set()
