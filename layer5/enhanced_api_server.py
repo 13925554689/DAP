@@ -767,7 +767,12 @@ class EnhancedAPIServer:
         uvicorn.run(self.app, **uvicorn_config)
 
 # Convenience functions
-def start_api_server(host: str = "127.0.0.1", port: int = 8000, ai_enabled: bool = True):
+def start_api_server(
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    ai_enabled: bool = True,
+    **uvicorn_options,
+):
     """Start the enhanced API server with AI capabilities"""
     config = {
         "ai_enabled": ai_enabled,
@@ -780,7 +785,7 @@ def start_api_server(host: str = "127.0.0.1", port: int = 8000, ai_enabled: bool
     }
 
     server = EnhancedAPIServer(config)
-    server.start_server(host, port)
+    server.start_server(host, port, **uvicorn_options)
 
 def create_api_app(config: Dict[str, Any] = None) -> Optional[FastAPI]:
     """Create FastAPI app for external hosting"""
