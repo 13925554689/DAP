@@ -1,0 +1,117 @@
+# Document generation templates for audit reports and attachments
+
+templates:
+  audit_workpaper_standard:
+    description: "审计底稿：包含项目概览、抽样凭证与风险评估。"
+    output_formats: ["docx", "pdf"]
+    data_bindings:
+      header:
+        source: "meta_projects"
+        select: ["project_name", "project_code", "company_id", "created_at"]
+      sections:
+        planning_summary:
+          query: "SELECT * FROM view_planning_summary WHERE project_id = :project_id"
+        sampling_details:
+          query: "SELECT * FROM view_sampling_vouchers WHERE project_id = :project_id"
+        risk_matrix:
+          query: "SELECT * FROM view_audit_risk_matrix WHERE project_id = :project_id"
+    layout:
+      template_file: "templates/workpaper_standard.docx"
+      placeholders:
+        project_name: "{{ header.project_name }}"
+        report_date: "{{ generated_at | date:'%Y-%m-%d' }}"
+        sections:
+          - id: "planning_summary"
+            repeat: false
+          - id: "sampling_details"
+            repeat: true
+          - id: "risk_matrix"
+            repeat: false
+
+  audit_report_comprehensive:
+    description: "审计报告：项目结论、整改建议、关键发现。"
+    output_formats: ["docx", "pdf"]
+    data_bindings:
+      header:
+        source: "meta_projects"
+        select: ["project_name", "project_code", "company_id"]
+      findings:
+        query: "SELECT * FROM view_audit_findings WHERE project_id = :project_id ORDER BY severity DESC"
+      recommendations:
+        query: "SELECT * FROM view_recommendations WHERE project_id = :project_id"
+      appendices:
+        query: "SELECT * FROM view_supporting_documents WHERE project_id = :project_id"
+    layout:
+      template_file: "templates/audit_report_comprehensive.docx"
+      placeholders:
+        project_name: "{{ header.project_name }}"
+        executive_summary: "{{ findings | summarize:limit=3 }}"
+        findings_table: "{{ findings }}"
+        recommendations_list: "{{ recommendations }}"
+        appendix_links: "{{ appendices }}"
+
+  financial_statement_pack:
+    description: "财务报表：三大报表及关键指标分析。"
+    output_formats: ["xlsx", "pdf"]
+    data_bindings:
+      balance_sheet:
+        query: "SELECT * FROM view_balance_sheet WHERE company_id = :company_id AND report_period = :period"
+      income_statement:
+        query: "SELECT * FROM view_income_statement WHERE company_id = :company_id AND report_period = :period"
+      cash_flow:
+        query: "SELECT * FROM view_cash_flow WHERE company_id = :company_id AND report_period = :period"
+      ratios:
+        query: "SELECT * FROM view_financial_ratios WHERE company_id = :company_id AND report_period = :period"
+    layout:
+      template_file: "templates/financial_statement_template.xlsx"
+      sheet_mapping:
+        balance_sheet: "资产负债表"
+        income_statement: "利润表"
+        cash_flow: "现金流量表"
+        ratios: "指标分析"
+
+  audit_note_disclosure:
+    description: "审计报告附注：披露事项、重大会计估计及补充说明。"
+    output_formats: ["docx"]
+    data_bindings:
+      disclosure_items:
+        query: "SELECT * FROM view_disclosure_notes WHERE project_id = :project_id ORDER BY note_order"
+      accounting_estimates:
+        query: "SELECT * FROM view_accounting_estimates WHERE project_id = :project_id"
+    layout:
+      template_file: "templates/audit_note_disclosure.docx"
+      placeholders:
+        disclosures: "{{ disclosure_items }}"
+        estimates: "{{ accounting_estimates }}"
+
+default_settings:
+  timezone: "Asia/Shanghai"
+  date_format: "%Y-%m-%d"
+  number_format: "#,##0.00"
+  output_path: "data/generated_documents"
+  attachment_storage:
+    path: "data/attachments"
+    chunk_size: 1048576
+    max_file_size: 2147483648
+    encryption:
+      enabled: false
+      algorithm: "xor"
+      key_env_var: "DAP_ATTACHMENT_KEY"
+      key_id: "default"
+  archive_versions: true
+  include_lineage: true
+  lineage_fields: ["source_tables", "rule_versions", "generated_by"]
+
+validation:
+  required_placeholders:
+    - project_name
+    - generated_at
+  optional_sections:
+    - appendices
+    - recommendations_list
+  pre_hooks:
+    - "validate_required_fields"
+    - "ensure_data_complete"
+  post_hooks:
+    - "register_document_version"
+    - "enqueue_notification"

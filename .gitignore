@@ -1,0 +1,95 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+dap_env/
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+logs/
+dap.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+cache/
+*.cache
+.cache/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# Output directories
+exports/
+output/
+results/
+
+# Model files (large files)
+models/
+ai_models/
+vectors/
+
+# Performance monitoring
+performance_monitor/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Local configuration
+config/local/
+.env
+.env.local

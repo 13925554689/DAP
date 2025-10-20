@@ -1,0 +1,79 @@
+{
+  "SystemName": "审计智脑 (AIB)",
+  "CoreObjective": "为审计师提供一站式财务数据接入、标准化、存储、分析及AI驱动的智能分析平台。",
+  "Architecture": {
+    "DataIngestionLayer": {
+      "Component": "数据连接器集群",
+      "Technology": ["Python", "Apache Kafka", "SFTP"],
+      "Function": "对接金蝶、用友、SAP等财务系统，通过备份文件或直连方式提取数据，并安全传输。"
+    },
+    "DataProcessingStorageLayer": {
+      "Component": "数据标准化引擎",
+      "Technology": ["Apache Spark", "Python Pandas"],
+      "Function": "清洗、映射、重构原始数据至标准星型模型。"
+    },
+    {
+      "Component": "云数据仓库",
+      "Technology": ["Snowflake", "Google BigQuery", "Apache Doris"],
+      "Function": "存储和管理标准化后的数据，提供高性能SQL查询接口。优势：计算存储分离，自动缩放，成本效益高。"
+    },
+    {
+      "Component": "原始数据湖",
+      "Technology": ["AWS S3", "Azure Blob Storage", "MinIO"],
+      "Function": "低成本、持久化存储原始备份文件，用于审计追踪和合规性要求。"
+    },
+    "AILayer": {
+      "Component": "机器学习平台",
+      "Technology": ["MLflow"],
+      "Function": "全生命周期管理AI模型（科目映射模型、异常检测模型）。"
+    },
+    {
+      "Component": "向量数据库",
+      "Technology": ["ChromaDB", "Pinecone"],
+      "Function": "存储非结构化数据的数值向量，用于高效语义相似性检索。"
+    },
+    "ApplicationServiceLayer": {
+      "Component": "报表生成服务",
+      "Technology": ["Java", "JasperReports"],
+      "Function": "根据预置模板（如审计底稿）从数仓获取数据并生成可下载文件。"
+    },
+    {
+      "Component": "交互式分析服务",
+      "Technology": ["Apache Superset"],
+      "Function": "提供拖拽式可视化分析界面，允许用户自由探索数据。"
+    },
+    {
+      "Component": "AI智能体服务",
+      "Technology": ["LangChain", "LLamaIndex", "大语言模型API (GPT-4, ERNIE)"],
+      "Function": "接收自然语言查询，协调其他服务执行复杂分析任务并返回结果。"
+    },
+    "PresentationLayer": {
+      "Component": "Web前端",
+      "Technology": ["React", "Vue.js"],
+      "Function": "提供数据导入、报表下载、仪表板分析和AI对话的统一用户界面。"
+    }
+  },
+  "CoreAICapabilities": [
+    {
+      "Name": "智能科目映射",
+      "Algorithm": "NLP语义相似度 (Sentence-BERT) + 监督学习",
+      "Logic": "将客户科目与标准科目转换为向量，计算余弦相似度并推荐映射。用户反馈用于微调模型。"
+    },
+    {
+      "Name": "异常交易检测",
+      "Algorithm": "隔离森林 (Isolation Forest) -> XGBoost分类",
+      "Logic": "初期使用无监督学习发现异常；后期利用审计师确认的标签训练监督学习模型，提升准确性。"
+    },
+    {
+      "Name": "自然语言交互分析",
+      "Algorithm": "大语言模型 (LLM) + Agent框架",
+      "Logic": "LLM解析用户意图并规划执行步骤，Agent调用查询、计算等服务完成任务并生成报告。"
+    }
+  ],
+  "KeyBenefits": [
+    "一站式解决数据接入到分析的全流程问题",
+    "存储方案兼顾性能、成本与合规性",
+    "交互方式同时满足标准化和个性化需求",
+    "AI功能使系统具备自学习能力，越用越智能，显著提升审计效率与深度"
+  ]
+}

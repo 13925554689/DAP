@@ -1,0 +1,447 @@
+# DAP 审计规则配置文件
+# 版本: 1.0
+# 描述: 智能审计规则定义
+
+version: '1.0'
+description: 'DAP智能审计规则配置'
+author: 'DAP System'
+created_date: '2024-01-01'
+
+# 全局配置
+global_settings:
+  # 规则执行模式
+  execution_mode: 'sequential'  # sequential | parallel
+  
+  # 错误处理策略
+  error_handling: 'continue'    # continue | stop_on_error
+  
+  # 日志级别
+  log_level: 'info'            # debug | info | warning | error
+  
+  # 超时设置（秒）
+  timeout: 300
+
+# 审计规则定义
+rules:
+  # 会计科目分类规则
+  - rule_id: 'GL_ASSET_CLASSIFICATION'
+    type: 'classification'
+    description: '总账科目资产分类'
+    enabled: true
+    priority: 1
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*科目*|*account*|*科目编码*|*account_code*'
+        operator: 'prefix'
+        value: '1'
+    action:
+      type: 'add_column'
+      column_name: 'account_type'
+      value: '资产'
+    metadata:
+      category: 'financial_classification'
+      impact: 'low'
+      
+  - rule_id: 'GL_LIABILITY_CLASSIFICATION'
+    type: 'classification'
+    description: '总账科目负债分类'
+    enabled: true
+    priority: 1
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*科目*|*account*|*科目编码*|*account_code*'
+        operator: 'prefix'
+        value: '2'
+    action:
+      type: 'add_column'
+      column_name: 'account_type'
+      value: '负债'
+    metadata:
+      category: 'financial_classification'
+      impact: 'low'
+      
+  - rule_id: 'GL_EQUITY_CLASSIFICATION'
+    type: 'classification'
+    description: '总账科目权益分类'
+    enabled: true
+    priority: 1
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*科目*|*account*|*科目编码*|*account_code*'
+        operator: 'prefix'
+        value: '3'
+    action:
+      type: 'add_column'
+      column_name: 'account_type'
+      value: '权益'
+    metadata:
+      category: 'financial_classification'
+      impact: 'low'
+      
+  - rule_id: 'GL_INCOME_CLASSIFICATION'
+    type: 'classification'
+    description: '总账科目收入分类'
+    enabled: true
+    priority: 1
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*科目*|*account*|*科目编码*|*account_code*'
+        operator: 'in'
+        value: ['4', '6']  # 4开头和6开头都是收入
+    action:
+      type: 'add_column'
+      column_name: 'account_type'
+      value: '收入'
+    metadata:
+      category: 'financial_classification'
+      impact: 'low'
+      
+  - rule_id: 'GL_EXPENSE_CLASSIFICATION'
+    type: 'classification'
+    description: '总账科目费用分类'
+    enabled: true
+    priority: 1
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*科目*|*account*|*科目编码*|*account_code*'
+        operator: 'prefix'
+        value: '5'
+    action:
+      type: 'add_column'
+      column_name: 'account_type'
+      value: '费用'
+    metadata:
+      category: 'financial_classification'
+      impact: 'low'
+
+  # 金额异常检测规则
+  - rule_id: 'LARGE_AMOUNT_FLAG'
+    type: 'validation'
+    description: '大额交易标记'
+    enabled: true
+    priority: 2
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*金额*|*amount*|*money*|*价格*|*price*'
+        operator: 'greater_than'
+        value: 100000  # 10万以上为大额
+    action:
+      type: 'add_column'
+      column_name: 'large_amount_flag'
+      value: true
+    metadata:
+      category: 'amount_validation'
+      impact: 'medium'
+      
+  - rule_id: 'NEGATIVE_AMOUNT_FLAG'
+    type: 'validation'
+    description: '负数金额标记'
+    enabled: true
+    priority: 2
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*金额*|*amount*|*money*'
+        operator: 'less_than'
+        value: 0
+    action:
+      type: 'add_column'
+      column_name: 'negative_amount_flag'
+      value: true
+    metadata:
+      category: 'amount_validation'
+      impact: 'high'
+      
+  - rule_id: 'ROUND_AMOUNT_DETECTION'
+    type: 'validation'
+    description: '整数金额检测（可能的估算）'
+    enabled: true
+    priority: 3
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*金额*|*amount*|*money*'
+        operator: 'regex'
+        value: '^\\d+00\\.00$|^\\d+000\\.00$'  # 以00.00或000.00结尾
+    action:
+      type: 'add_column'
+      column_name: 'round_amount_flag'
+      value: true
+    metadata:
+      category: 'amount_validation'
+      impact: 'low'
+
+  # 日期异常检测规则
+  - rule_id: 'DATE_MISSING_FLAG'
+    type: 'validation'
+    description: '日期缺失标记'
+    enabled: true
+    priority: 2
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*日期*|*date*|*time*|*时间*'
+        operator: 'is_null'
+        value: true
+    action:
+      type: 'add_column'
+      column_name: 'date_missing_flag'
+      value: true
+    metadata:
+      category: 'date_validation'
+      impact: 'medium'
+      
+  - rule_id: 'WEEKEND_TRANSACTION_FLAG'
+    type: 'validation'
+    description: '周末交易标记'
+    enabled: true
+    priority: 3
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*日期*|*date*|*交易日期*|*transaction_date*'
+        operator: 'weekend_check'
+        value: true
+    action:
+      type: 'add_column'
+      column_name: 'weekend_transaction_flag'
+      value: true
+    metadata:
+      category: 'date_validation'
+      impact: 'medium'
+      
+  - rule_id: 'FUTURE_DATE_FLAG'
+    type: 'validation'
+    description: '未来日期标记'
+    enabled: true
+    priority: 2
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*日期*|*date*|*交易日期*'
+        operator: 'greater_than'
+        value: 'TODAY'
+    action:
+      type: 'add_column'
+      column_name: 'future_date_flag'
+      value: true
+    metadata:
+      category: 'date_validation'
+      impact: 'high'
+
+  # 业务逻辑验证规则
+  - rule_id: 'DUPLICATE_TRANSACTION_CHECK'
+    type: 'validation'
+    description: '重复交易检查'
+    enabled: true
+    priority: 2
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*'
+        operator: 'duplicate_check'
+        value: 
+          key_fields: ['*日期*', '*金额*', '*科目*']
+          tolerance: 0  # 完全匹配
+    action:
+      type: 'add_column'
+      column_name: 'duplicate_transaction_flag'
+      value: true
+    metadata:
+      category: 'business_validation'
+      impact: 'high'
+      
+  - rule_id: 'SEQUENTIAL_NUMBER_CHECK'
+    type: 'validation'
+    description: '连续编号检查'
+    enabled: true
+    priority: 3
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*编号*|*number*|*id*|*凭证号*'
+        operator: 'sequence_check'
+        value: true
+    action:
+      type: 'add_column'
+      column_name: 'sequence_gap_flag'
+      value: true
+    metadata:
+      category: 'business_validation'
+      impact: 'medium'
+
+  # 数据质量规则
+  - rule_id: 'MISSING_MANDATORY_FIELDS'
+    type: 'validation'
+    description: '必填字段缺失检查'
+    enabled: true
+    priority: 1
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*客户*|*customer*|*供应商*|*vendor*'
+        operator: 'is_null'
+        value: true
+    action:
+      type: 'add_column'
+      column_name: 'missing_mandatory_flag'
+      value: true
+    metadata:
+      category: 'data_quality'
+      impact: 'high'
+      
+  - rule_id: 'INVALID_FORMAT_CHECK'
+    type: 'validation'
+    description: '格式错误检查'
+    enabled: true
+    priority: 2
+    target_pattern: 'raw_clean_*'
+    conditions:
+      - field_pattern: '*电话*|*phone*|*手机*|*mobile*'
+        operator: 'regex'
+        value: '^(?!1[3-9]\\d{9}$)'  # 不符合手机号格式
+    action:
+      type: 'add_column'
+      column_name: 'invalid_format_flag'
+      value: true
+    metadata:
+      category: 'data_quality'
+      impact: 'low'
+
+  # 聚合分析规则
+  - rule_id: 'MONTHLY_REVENUE_SUMMARY'
+    type: 'aggregation'
+    description: '月度收入汇总'
+    enabled: true
+    priority: 4
+    target_pattern: 'raw_clean_*'
+    group_by: 
+      - 'strftime("%Y-%m", *日期*)'
+    aggregate:
+      - field: '*金额*|*amount*'
+        function: 'sum'
+        alias: 'monthly_revenue'
+      - field: '*金额*|*amount*'
+        function: 'count'
+        alias: 'transaction_count'
+      - field: '*金额*|*amount*'
+        function: 'avg'
+        alias: 'avg_amount'
+    conditions:
+      - field_pattern: '*科目*|*account*'
+        operator: 'prefix'
+        value: '6'  # 收入科目
+    action:
+      type: 'create_view'
+      output_name: 'monthly_revenue_summary'
+    metadata:
+      category: 'financial_analysis'
+      impact: 'low'
+      
+  - rule_id: 'CUSTOMER_TRANSACTION_SUMMARY'
+    type: 'aggregation'
+    description: '客户交易汇总'
+    enabled: true
+    priority: 4
+    target_pattern: 'raw_clean_*'
+    group_by:
+      - '*客户*|*customer*'
+    aggregate:
+      - field: '*金额*|*amount*'
+        function: 'sum'
+        alias: 'total_amount'
+      - field: '*金额*|*amount*'
+        function: 'count'
+        alias: 'transaction_count'
+      - field: '*日期*|*date*'
+        function: 'max'
+        alias: 'last_transaction_date'
+    action:
+      type: 'create_view'
+      output_name: 'customer_transaction_summary'
+    metadata:
+      category: 'customer_analysis'
+      impact: 'low'
+
+# 规则组定义（可选）
+rule_groups:
+  financial_classification:
+    description: '财务科目分类规则组'
+    rules: 
+      - 'GL_ASSET_CLASSIFICATION'
+      - 'GL_LIABILITY_CLASSIFICATION'
+      - 'GL_EQUITY_CLASSIFICATION'
+      - 'GL_INCOME_CLASSIFICATION'
+      - 'GL_EXPENSE_CLASSIFICATION'
+    
+  amount_validation:
+    description: '金额验证规则组'
+    rules:
+      - 'LARGE_AMOUNT_FLAG'
+      - 'NEGATIVE_AMOUNT_FLAG'
+      - 'ROUND_AMOUNT_DETECTION'
+    
+  date_validation:
+    description: '日期验证规则组'
+    rules:
+      - 'DATE_MISSING_FLAG'
+      - 'WEEKEND_TRANSACTION_FLAG'
+      - 'FUTURE_DATE_FLAG'
+    
+  business_validation:
+    description: '业务逻辑验证规则组'
+    rules:
+      - 'DUPLICATE_TRANSACTION_CHECK'
+      - 'SEQUENTIAL_NUMBER_CHECK'
+    
+  data_quality:
+    description: '数据质量规则组'
+    rules:
+      - 'MISSING_MANDATORY_FIELDS'
+      - 'INVALID_FORMAT_CHECK'
+      
+  analysis_aggregation:
+    description: '分析聚合规则组'
+    rules:
+      - 'MONTHLY_REVENUE_SUMMARY'
+      - 'CUSTOMER_TRANSACTION_SUMMARY'
+
+# 执行计划（可选）
+execution_plan:
+  phases:
+    - name: '基础分类'
+      description: '执行基础的科目分类'
+      rule_groups: ['financial_classification']
+      parallel: false
+      
+    - name: '数据验证'
+      description: '执行数据验证规则'
+      rule_groups: ['amount_validation', 'date_validation', 'business_validation', 'data_quality']
+      parallel: true
+      
+    - name: '聚合分析'
+      description: '执行聚合分析'
+      rule_groups: ['analysis_aggregation']
+      parallel: false
+
+# 通知配置（可选）
+notifications:
+  enabled: false
+  channels:
+    email:
+      enabled: false
+      recipients: []
+      smtp_server: ''
+      smtp_port: 587
+      username: ''
+      password: ''
+    
+    webhook:
+      enabled: false
+      url: ''
+      headers: {}
+
+# 性能配置
+performance:
+  batch_size: 1000          # 批处理大小
+  max_memory_usage: '2GB'   # 最大内存使用
+  parallel_workers: 4       # 并行工作线程数
+  
+# 审计日志配置
+audit_log:
+  enabled: true
+  log_file: 'audit_rules.log'
+  log_format: 'json'        # json | text
+  retention_days: 30
