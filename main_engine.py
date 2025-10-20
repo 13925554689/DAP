@@ -828,8 +828,10 @@ class EnhancedDAPEngine:
             logger.info("🤖 第三层：智能分析准备...")
             self.current_step = "启动服务"
             if validated_options.get("start_api_server", True):
-                self._start_api_server_background()
-                logger.info("✅ API服务启动完成")
+                if self._start_api_server_background():
+                    logger.info("✅ API服务启动完成")
+                else:
+                    logger.warning("⚠️ API服务启动未确认，请检查日志")
 
             self.progress = 100
             self.current_step = "处理完成"
@@ -950,6 +952,22 @@ class EnhancedDAPEngine:
 
         return True
 
+    def _invoke_api_server(self, start_kwargs: Dict[str, Any]):
+        """启动API服务器，自动处理参数兼容性"""
+        try:
+            return start_api_server(**start_kwargs)
+        except TypeError as exc:
+            message = str(exc)
+            if "unexpected keyword" in message or "got an unexpected keyword" in message:
+                logger.warning(
+                    "API服务器不支持高级启动参数，降级使用基础参数: %s", message
+                )
+                minimal_kwargs = {
+                    key: start_kwargs[key] for key in ("host", "port") if key in start_kwargs
+                }
+                return start_api_server(**minimal_kwargs)
+            raise
+
     def get_status(self) -> Dict[str, Any]:
         """获取当前处理状态"""
         return {
@@ -959,6 +977,9 @@ class EnhancedDAPEngine:
             "last_result": self.last_result,
             "api_server_running": self.api_server_thread
             and self.api_server_thread.is_alive(),
+            "api_server_last_error": (
+                str(self.api_server_last_error) if self.api_server_last_error else None
+            ),
         }
 
     def get_system_info(self) -> Dict[str, Any]:
