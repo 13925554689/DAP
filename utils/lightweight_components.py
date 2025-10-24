@@ -179,6 +179,65 @@ class LightweightStorageManager:
         """List entities summary (stub implementation)"""
         return []
 
+    # ==================== Entity Management Methods ====================
+
+    def create_entity(
+        self,
+        project_id: str,
+        entity_code: str,
+        entity_name: str,
+        entity_type: str = "子公司",
+        parent_entity_id: Optional[int] = None,
+        ownership_percentage: float = 100.0,
+        **kwargs
+    ) -> int:
+        """Create a new entity (company) in a project.
+
+        Note: This is a lightweight stub. Full implementation requires database.
+        """
+        logger.warning("Entity management requires database upgrade. Returning stub entity ID.")
+        return -1
+
+    def list_entities(self, project_id: str) -> List[Dict[str, Any]]:
+        """List all entities in a project.
+
+        Note: This is a lightweight stub. Full implementation requires database.
+        """
+        logger.warning("Entity management requires database upgrade. Returning empty list.")
+        return []
+
+    def get_entity(self, entity_id: int) -> Optional[Dict[str, Any]]:
+        """Get entity by ID.
+
+        Note: This is a lightweight stub. Full implementation requires database.
+        """
+        logger.warning("Entity management requires database upgrade. Returning None.")
+        return None
+
+    def update_entity(self, entity_id: int, **kwargs) -> bool:
+        """Update entity information.
+
+        Note: This is a lightweight stub. Full implementation requires database.
+        """
+        logger.warning("Entity management requires database upgrade. Returning False.")
+        return False
+
+    def delete_entity(self, entity_id: int) -> bool:
+        """Delete an entity.
+
+        Note: This is a lightweight stub. Full implementation requires database.
+        """
+        logger.warning("Entity management requires database upgrade. Returning False.")
+        return False
+
+    def get_entity_hierarchy(self, parent_entity_id: int) -> List[Dict[str, Any]]:
+        """Get entity hierarchy tree starting from parent.
+
+        Note: This is a lightweight stub. Full implementation requires database.
+        """
+        logger.warning("Entity hierarchy requires database upgrade. Returning empty list.")
+        return []
+
 
 class LightweightAuditRulesEngine:
     """Simple audit rules engine producing deterministic statistics."""
