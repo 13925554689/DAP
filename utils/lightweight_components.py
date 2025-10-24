@@ -149,6 +149,7 @@ class LightweightStorageManager:
         client_name: Optional[str] = None,
         fiscal_year: Optional[str] = None,
         fiscal_period: Optional[str] = None,
+        created_by: Optional[str] = None,
     ) -> str:
         """Create a new project"""
         project_id = project_code or f"proj_{len(self._projects) + 1}"
@@ -160,6 +161,7 @@ class LightweightStorageManager:
             "client_name": client_name,
             "fiscal_year": fiscal_year,
             "fiscal_period": fiscal_period,
+            "created_by": created_by or "系统",
         }
 
         return project_id
