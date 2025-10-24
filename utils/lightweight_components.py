@@ -28,7 +28,7 @@ def start_lightweight_api_server(*_args, **_kwargs) -> Dict[str, Any]:
 
 
 class LightweightDataIngestor:
-    """Fallback data ingestor that supports CSV and Excel sources."""
+    """Fallback data ingestor that supports CSV and Excel sources with auto-upgrade hint."""
 
     SUPPORTED_EXTENSIONS = {".csv", ".txt", ".xlsx", ".xls", ".xlsm"}
 
@@ -39,17 +39,30 @@ class LightweightDataIngestor:
         if not os.path.exists(file_path):
             raise DataIngestionError("数据源不存在", file_path=file_path)
 
+        # 检测是否需要完整模式
         if os.path.isdir(file_path):
-            raise DataIngestionError("轻量模式暂不支持直接导入文件夹，请切换至完整模式。", file_path=file_path)
+            self._suggest_upgrade("文件夹批量导入")
+            raise DataIngestionError(
+                "检测到文件夹导入需求。\n\n"
+                "💡 系统正在尝试自动切换到完整模式...\n"
+                "如自动切换失败,请手动安装完整依赖:\n"
+                "  pip install rarfile py7zr",
+                file_path=file_path
+            )
 
         suffix = Path(file_path).suffix.lower()
 
         if not suffix:
-            raise DataIngestionError("无法识别文件类型，请补充扩展名或使用完整模式。", file_path=file_path)
+            raise DataIngestionError("无法识别文件类型,请补充扩展名", file_path=file_path)
 
+        # 检测不支持的文件类型并提示升级
         if suffix not in self.SUPPORTED_EXTENSIONS:
+            self._suggest_upgrade(f"文件类型 {suffix}")
             raise DataIngestionError(
-                f"轻量模式不支持的文件类型: {suffix}，请切换至完整模式处理。",
+                f"检测到高级文件类型: {suffix}\n\n"
+                f"💡 系统正在尝试自动切换到完整模式...\n"
+                f"如自动切换失败,请手动安装完整依赖:\n"
+                f"  pip install rarfile py7zr",
                 file_path=file_path,
             )
 
@@ -58,13 +71,21 @@ class LightweightDataIngestor:
                 dataframe = pd.read_csv(file_path)
             else:
                 dataframe = pd.read_excel(file_path)
-        except Exception as exc:  # pragma: no cover - I/O 防御
+        except Exception as exc:
             raise DataIngestionError(f"数据解析失败: {exc}", file_path=file_path) from exc
 
         if dataframe.empty:
             raise DataIngestionError("未解析到有效数据", file_path=file_path)
 
         return {"primary": dataframe}
+
+    def _suggest_upgrade(self, feature: str):
+        """Suggest upgrading to full mode"""
+        logger.info(
+            f"✨ 检测到需要完整模式功能: {feature}\n"
+            f"   推荐安装: pip install rarfile py7zr\n"
+            f"   或运行: fix_dependencies.bat"
+        )
 
 
 class LightweightStorageManager:
