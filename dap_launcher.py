@@ -876,7 +876,10 @@ class DAPLauncher:
 
         # 调整管理标签页
         self.create_adjustment_tab(self.notebook)
-    
+
+        # 项目管理标签页
+        self.create_project_management_tab(self.notebook)
+
     def create_import_tab(self, parent):
         """创建数据导入标签页"""
         import_frame = ttk.Frame(parent, padding="10")
