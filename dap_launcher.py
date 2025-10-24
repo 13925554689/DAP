@@ -1076,14 +1076,23 @@ class DAPLauncher:
             command=self.financial_export_dialog
         )
         financial_export_button.grid(row=0, column=3, padx=5)
-        
+
+        # 财务报表查看器按钮 (新增)
+        view_financial_button = ttk.Button(
+            button_frame,
+            text="📊 财务报表查看",
+            command=self.open_financial_viewer,
+            style='Accent.TButton'
+        )
+        view_financial_button.grid(row=0, column=4, padx=5)
+
         # 生成报告按钮
         report_button = ttk.Button(
             button_frame,
             text="📋 生成审计报告",
             command=self.generate_report_dialog
         )
-        report_button.grid(row=0, column=4, padx=(5, 0))
+        report_button.grid(row=0, column=5, padx=(5, 0))
         
         # 人机交互区域
         interaction_frame = ttk.LabelFrame(
