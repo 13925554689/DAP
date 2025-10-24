@@ -567,24 +567,25 @@ class EnhancedDAPEngine:
                 critical=False,
             )
             # Layer 3 intelligence
+            ai_config = {"db_path": self.db_path}
             self._safe_init_component(
                 "ai_audit_rules_engine",
-                lambda: AIAuditRulesEngine(self.db_path),
+                lambda: AIAuditRulesEngine(ai_config),
                 critical=False,
             )
             self._safe_init_component(
                 "adaptive_account_mapper",
-                lambda: AdaptiveAccountMapper(self.db_path),
+                lambda: AdaptiveAccountMapper(ai_config),
                 critical=False,
             )
             self._safe_init_component(
                 "anomaly_detector",
-                lambda: AnomalyDetector(self.db_path),
+                lambda: AnomalyDetector(ai_config),
                 critical=False,
             )
             self._safe_init_component(
                 "audit_knowledge_base",
-                lambda: AuditKnowledgeBase(self.db_path),
+                lambda: AuditKnowledgeBase(ai_config),
                 critical=False,
             )
             # Layer 4 reporting/export
