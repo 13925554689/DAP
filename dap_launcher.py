@@ -1248,10 +1248,34 @@ class DAPLauncher:
             wrap=tk.WORD
         )
         self.ai_result_text.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
+
         # 更新AI状态
         self.update_ai_status()
-    
+
+    def create_reconciliation_tab(self, parent):
+        """创建对账结果展示标签页"""
+        try:
+            self.reconciliation_tab = ReconciliationResultsTab(parent, self.dap_engine)
+            logging.info("对账结果展示Tab已创建")
+        except Exception as e:
+            logging.error(f"创建对账结果展示Tab失败: {e}")
+            # 创建一个占位符标签页
+            placeholder_frame = ttk.Frame(parent, padding="10")
+            parent.add(placeholder_frame, text="对账结果")
+            ttk.Label(placeholder_frame, text=f"对账结果Tab加载失败: {str(e)}").pack(pady=20)
+
+    def create_adjustment_tab(self, parent):
+        """创建调整管理标签页"""
+        try:
+            self.adjustment_tab = AdjustmentManagementTab(parent, self.dap_engine)
+            logging.info("调整管理Tab已创建")
+        except Exception as e:
+            logging.error(f"创建调整管理Tab失败: {e}")
+            # 创建一个占位符标签页
+            placeholder_frame = ttk.Frame(parent, padding="10")
+            parent.add(placeholder_frame, text="调整管理")
+            ttk.Label(placeholder_frame, text=f"调整管理Tab加载失败: {str(e)}").pack(pady=20)
+
     def create_status_bar(self, parent):
         """创建状态栏"""
         status_frame = ttk.Frame(parent)
