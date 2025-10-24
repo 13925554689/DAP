@@ -555,4 +555,512 @@ class ReconciliationResultsTab:
         messagebox.showinfo("提示", "对账规则配置功能开发中...")
 
 
-# Continue in next message due to length...
+class AdjustmentManagementTab:
+    """调整管理Tab - 完整审计追踪"""
+
+    def __init__(self, parent, dap_engine):
+        """Initialize adjustment management tab.
+
+        Args:
+            parent: Parent notebook widget
+            dap_engine: DAP engine instance
+        """
+        self.dap_engine = dap_engine
+        self.adjustment_manager: Optional[AdjustmentManager] = None
+
+        # Create main frame
+        self.frame = ttk.Frame(parent, padding="10")
+        parent.add(self.frame, text="📝 调整管理")
+
+        # Initialize manager
+        self._init_manager()
+
+        # Build widgets
+        self._build_widgets()
+
+    def _init_manager(self):
+        """Initialize adjustment manager."""
+        try:
+            db_path = self.dap_engine.storage_manager.db_path
+            self.adjustment_manager = AdjustmentManager(db_path)
+            logger.info("Adjustment manager initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize adjustment manager: {e}")
+
+    def _build_widgets(self):
+        """Build tab widgets."""
+        # Configure grid
+        self.frame.columnconfigure(0, weight=1)
+        self.frame.rowconfigure(2, weight=1)
+
+        # Title
+        title_label = ttk.Label(
+            self.frame,
+            text="调整管理 - 完整审计追踪 & 调表不调账",
+            font=("Arial", 14, "bold")
+        )
+        title_label.grid(row=0, column=0, pady=(0, 10), sticky=tk.W)
+
+        # Create adjustment panel
+        self._create_new_adjustment_panel()
+
+        # Adjustment list panel
+        self._create_adjustment_list_panel()
+
+        # Detail panel
+        self._create_detail_panel()
+
+    def _create_new_adjustment_panel(self):
+        """Create new adjustment creation panel."""
+        new_frame = ttk.LabelFrame(self.frame, text="创建新调整", padding="10")
+        new_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        # Adjustment type
+        ttk.Label(new_frame, text="调整类型:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        self.adj_type_combo = ttk.Combobox(
+            new_frame,
+            values=["单体调整", "公允价值调整", "合并调整", "初始化调整"],
+            width=18,
+            state="readonly"
+        )
+        self.adj_type_combo.set("单体调整")
+        self.adj_type_combo.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+
+        # Entity ID
+        ttk.Label(new_frame, text="实体ID:").grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
+        self.entity_id_entry = ttk.Entry(new_frame, width=15)
+        self.entity_id_entry.grid(row=0, column=3, padx=5, pady=5, sticky=tk.W)
+
+        # Period
+        ttk.Label(new_frame, text="期间:").grid(row=0, column=4, padx=5, pady=5, sticky=tk.W)
+        self.adj_period_entry = ttk.Entry(new_frame, width=15)
+        self.adj_period_entry.insert(0, datetime.now().strftime("%Y-%m"))
+        self.adj_period_entry.grid(row=0, column=5, padx=5, pady=5, sticky=tk.W)
+
+        # Buttons
+        ttk.Button(
+            new_frame,
+            text="➕ 新建调整分录",
+            command=self._create_adjustment
+        ).grid(row=0, column=6, padx=10, pady=5)
+
+        ttk.Button(
+            new_frame,
+            text="📋 从模板创建",
+            command=self._create_from_template
+        ).grid(row=0, column=7, padx=5, pady=5)
+
+    def _create_adjustment_list_panel(self):
+        """Create adjustment list display panel."""
+        list_frame = ttk.LabelFrame(self.frame, text="调整列表", padding="10")
+        list_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+
+        # Tree with scrollbar
+        tree_frame = ttk.Frame(list_frame)
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+
+        y_scrollbar = ttk.Scrollbar(tree_frame)
+        y_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        x_scrollbar = ttk.Scrollbar(tree_frame, orient=tk.HORIZONTAL)
+        x_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        self.adjustment_tree = ttk.Treeview(
+            tree_frame,
+            columns=("调整ID", "类型", "实体ID", "期间", "金额", "描述", "创建人", "创建时间", "状态"),
+            show="headings",
+            yscrollcommand=y_scrollbar.set,
+            xscrollcommand=x_scrollbar.set
+        )
+
+        # Configure columns
+        columns_config = [
+            ("调整ID", 80),
+            ("类型", 120),
+            ("实体ID", 80),
+            ("期间", 80),
+            ("金额", 120),
+            ("描述", 200),
+            ("创建人", 100),
+            ("创建时间", 150),
+            ("状态", 80)
+        ]
+
+        for col, width in columns_config:
+            self.adjustment_tree.heading(col, text=col)
+            self.adjustment_tree.column(col, width=width)
+
+        self.adjustment_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        y_scrollbar.config(command=self.adjustment_tree.yview)
+        x_scrollbar.config(command=self.adjustment_tree.xview)
+
+        # Bind selection event
+        self.adjustment_tree.bind("<<TreeviewSelect>>", self._on_adjustment_selected)
+
+        # Context menu
+        self.adjustment_tree.bind("<Button-3>", self._show_adjustment_context_menu)
+
+        # Action buttons
+        btn_frame = ttk.Frame(list_frame)
+        btn_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(btn_frame, text="🔄 刷新", command=self._refresh_adjustments).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="🔍 查看审计追踪", command=self._view_audit_trail).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="📊 调整前后对比", command=self._compare_before_after).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="↩️ 冲销调整", command=self._reverse_adjustment).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="💾 导出", command=self._export_adjustments).pack(side=tk.LEFT, padx=5)
+
+        # Load adjustments
+        self._refresh_adjustments()
+
+    def _create_detail_panel(self):
+        """Create adjustment detail display panel."""
+        detail_frame = ttk.LabelFrame(self.frame, text="调整详情", padding="10")
+        detail_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        self.detail_text = tk.Text(detail_frame, height=8, width=120, state='disabled', wrap=tk.WORD)
+        self.detail_text.pack(fill=tk.BOTH, expand=True)
+
+    def _create_adjustment(self):
+        """Create new adjustment entry."""
+        # Create dialog
+        dialog = tk.Toplevel(self.frame)
+        dialog.title("创建调整分录")
+        dialog.geometry("600x500")
+        dialog.transient(self.frame)
+        dialog.grab_set()
+
+        ttk.Label(
+            dialog,
+            text="新建调整分录",
+            font=("Arial", 12, "bold")
+        ).pack(pady=10)
+
+        # Form frame
+        form_frame = ttk.Frame(dialog, padding="20")
+        form_frame.pack(fill=tk.BOTH, expand=True)
+
+        fields = {}
+
+        # Debit account
+        ttk.Label(form_frame, text="借方科目代码:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        fields["debit_code"] = ttk.Entry(form_frame, width=20)
+        fields["debit_code"].grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+
+        ttk.Label(form_frame, text="借方科目名称:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        fields["debit_name"] = ttk.Entry(form_frame, width=30)
+        fields["debit_name"].grid(row=1, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+        # Credit account
+        ttk.Label(form_frame, text="贷方科目代码:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
+        fields["credit_code"] = ttk.Entry(form_frame, width=20)
+        fields["credit_code"].grid(row=2, column=1, padx=5, pady=5, sticky=tk.W)
+
+        ttk.Label(form_frame, text="贷方科目名称:").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
+        fields["credit_name"] = ttk.Entry(form_frame, width=30)
+        fields["credit_name"].grid(row=3, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+        # Amount
+        ttk.Label(form_frame, text="调整金额:").grid(row=4, column=0, padx=5, pady=5, sticky=tk.W)
+        fields["amount"] = ttk.Entry(form_frame, width=20)
+        fields["amount"].grid(row=4, column=1, padx=5, pady=5, sticky=tk.W)
+
+        # Description
+        ttk.Label(form_frame, text="调整说明:").grid(row=5, column=0, padx=5, pady=5, sticky=tk.NW)
+        fields["description"] = tk.Text(form_frame, width=40, height=4)
+        fields["description"].grid(row=5, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+        # Created by
+        ttk.Label(form_frame, text="创建人:").grid(row=6, column=0, padx=5, pady=5, sticky=tk.W)
+        fields["created_by"] = ttk.Entry(form_frame, width=20)
+        fields["created_by"].insert(0, "系统用户")
+        fields["created_by"].grid(row=6, column=1, padx=5, pady=5, sticky=tk.W)
+
+        def save_adjustment():
+            try:
+                # Validate inputs
+                debit_code = fields["debit_code"].get().strip()
+                credit_code = fields["credit_code"].get().strip()
+                amount = fields["amount"].get().strip()
+
+                if not all([debit_code, credit_code, amount]):
+                    messagebox.showerror("错误", "请填写必填字段")
+                    return
+
+                amount = float(amount)
+                if amount <= 0:
+                    messagebox.showerror("错误", "金额必须大于0")
+                    return
+
+                # Create adjustment
+                self.adjustment_manager.connect()
+                adjustment_id = self.adjustment_manager.create_adjustment(
+                    adjustment_type=self.adj_type_combo.get(),
+                    entity_id=int(self.entity_id_entry.get()),
+                    period=self.adj_period_entry.get(),
+                    entries=[{
+                        "debit_account": debit_code,
+                        "debit_account_name": fields["debit_name"].get().strip(),
+                        "credit_account": credit_code,
+                        "credit_account_name": fields["credit_name"].get().strip(),
+                        "amount": amount,
+                        "description": fields["description"].get("1.0", tk.END).strip()
+                    }],
+                    value_dimension="adjusted",
+                    created_by=fields["created_by"].get().strip()
+                )
+                self.adjustment_manager.disconnect()
+
+                messagebox.showinfo("成功", f"调整创建成功! ID: {adjustment_id}")
+                self._refresh_adjustments()
+                dialog.destroy()
+
+            except Exception as e:
+                messagebox.showerror("错误", f"创建调整失败: {e}")
+
+        # Buttons
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.pack(pady=20)
+
+        ttk.Button(btn_frame, text="💾 保存", command=save_adjustment).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame, text="❌ 取消", command=dialog.destroy).pack(side=tk.LEFT, padx=10)
+
+    def _create_from_template(self):
+        """Create adjustment from template."""
+        messagebox.showinfo("提示", "从模板创建功能开发中...")
+
+    def _refresh_adjustments(self):
+        """Refresh adjustment list."""
+        # Clear existing
+        for item in self.adjustment_tree.get_children():
+            self.adjustment_tree.delete(item)
+
+        if not self.adjustment_manager:
+            return
+
+        try:
+            self.adjustment_manager.connect()
+            cursor = self.adjustment_manager.conn.execute("""
+                SELECT DISTINCT adjustment_id, adjustment_type, entity_id, period,
+                       created_by, created_at, is_reversed
+                FROM adjustment_history
+                ORDER BY adjustment_id DESC
+                LIMIT 100
+            """)
+
+            for row in cursor.fetchall():
+                status = "❌ 已冲销" if row[6] else "✅ 正常"
+                self.adjustment_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        row[0],  # adjustment_id
+                        row[1],  # type
+                        row[2],  # entity_id
+                        row[3],  # period
+                        "-",     # amount (would need to sum)
+                        "-",     # description
+                        row[4] or "未知",  # created_by
+                        row[5],  # created_at
+                        status
+                    )
+                )
+
+            self.adjustment_manager.disconnect()
+
+        except Exception as e:
+            logger.error(f"Failed to refresh adjustments: {e}")
+
+    def _on_adjustment_selected(self, event):
+        """Handle adjustment selection."""
+        selection = self.adjustment_tree.selection()
+        if not selection:
+            return
+
+        values = self.adjustment_tree.item(selection[0])['values']
+        adjustment_id = values[0]
+
+        # Load and display details
+        self._display_adjustment_details(adjustment_id)
+
+    def _display_adjustment_details(self, adjustment_id: int):
+        """Display adjustment details."""
+        if not self.adjustment_manager:
+            return
+
+        try:
+            self.adjustment_manager.connect()
+            trail = self.adjustment_manager.get_adjustment_trail(adjustment_id)
+            self.adjustment_manager.disconnect()
+
+            # Format details
+            self.detail_text.config(state='normal')
+            self.detail_text.delete("1.0", tk.END)
+
+            self.detail_text.insert(tk.END, f"调整ID: {adjustment_id}\n")
+            self.detail_text.insert(tk.END, f"分录数量: {len(trail)}\n\n")
+
+            for idx, entry in enumerate(trail, 1):
+                self.detail_text.insert(tk.END, f"[分录 {idx}]\n")
+                self.detail_text.insert(tk.END, f"  借: {entry['debit_account_name']} ({entry['debit_account']}) "
+                                                f"{entry['amount']:,.2f}\n")
+                self.detail_text.insert(tk.END, f"  贷: {entry['credit_account_name']} ({entry['credit_account']}) "
+                                                f"{entry['amount']:,.2f}\n")
+                self.detail_text.insert(tk.END, f"  说明: {entry.get('description', '-')}\n")
+                self.detail_text.insert(tk.END, f"  时间: {entry['adjustment_date']}\n\n")
+
+            self.detail_text.config(state='disabled')
+
+        except Exception as e:
+            logger.error(f"Failed to display adjustment details: {e}")
+
+    def _show_adjustment_context_menu(self, event):
+        """Show context menu for adjustments."""
+        menu = tk.Menu(self.frame, tearoff=0)
+        menu.add_command(label="查看审计追踪", command=self._view_audit_trail)
+        menu.add_command(label="调整前后对比", command=self._compare_before_after)
+        menu.add_separator()
+        menu.add_command(label="冲销调整", command=self._reverse_adjustment)
+        menu.add_command(label="导出PDF", command=lambda: messagebox.showinfo("提示", "导出PDF功能开发中..."))
+        menu.post(event.x_root, event.y_root)
+
+    def _view_audit_trail(self):
+        """View complete audit trail for selected adjustment."""
+        selection = self.adjustment_tree.selection()
+        if not selection:
+            messagebox.showwarning("提示", "请先选择一个调整")
+            return
+
+        values = self.adjustment_tree.item(selection[0])['values']
+        adjustment_id = values[0]
+
+        # Create dialog
+        dialog = tk.Toplevel(self.frame)
+        dialog.title(f"审计追踪 - 调整ID: {adjustment_id}")
+        dialog.geometry("800x500")
+
+        # Get trail
+        try:
+            self.adjustment_manager.connect()
+            trail = self.adjustment_manager.get_adjustment_trail(adjustment_id)
+            self.adjustment_manager.disconnect()
+
+            # Display in tree
+            tree = ttk.Treeview(
+                dialog,
+                columns=("历史ID", "调整日期", "借方", "贷方", "金额", "说明"),
+                show="headings"
+            )
+
+            for col in ["历史ID", "调整日期", "借方", "贷方", "金额", "说明"]:
+                tree.heading(col, text=col)
+
+            for entry in trail:
+                tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        entry['history_id'],
+                        entry['adjustment_date'],
+                        f"{entry['debit_account_name']} ({entry['debit_account']})",
+                        f"{entry['credit_account_name']} ({entry['credit_account']})",
+                        f"{entry['amount']:,.2f}",
+                        entry.get('description', '')[:50]
+                    )
+                )
+
+            tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            ttk.Button(dialog, text="关闭", command=dialog.destroy).pack(pady=10)
+
+        except Exception as e:
+            messagebox.showerror("错误", f"获取审计追踪失败: {e}")
+
+    def _compare_before_after(self):
+        """Compare data before and after adjustment."""
+        selection = self.adjustment_tree.selection()
+        if not selection:
+            messagebox.showwarning("提示", "请先选择一个调整")
+            return
+
+        values = self.adjustment_tree.item(selection[0])['values']
+        adjustment_id = values[0]
+        entity_id = values[2]
+        period = values[3]
+
+        try:
+            self.adjustment_manager.connect()
+            comparison = self.adjustment_manager.compare_before_after(
+                entity_id=entity_id,
+                period=period,
+                adjustment_id=adjustment_id
+            )
+            self.adjustment_manager.disconnect()
+
+            # Display comparison
+            message = f"调整前后对比 (调整ID: {adjustment_id})\n\n"
+            message += f"调整前数据:\n{comparison.get('before', 'N/A')}\n\n"
+            message += f"调整后数据:\n{comparison.get('after', 'N/A')}\n\n"
+            message += f"影响金额:\n{comparison.get('impact', 'N/A')}"
+
+            messagebox.showinfo("调整前后对比", message)
+
+        except Exception as e:
+            messagebox.showerror("错误", f"对比失败: {e}")
+
+    def _reverse_adjustment(self):
+        """Reverse selected adjustment."""
+        selection = self.adjustment_tree.selection()
+        if not selection:
+            messagebox.showwarning("提示", "请先选择一个调整")
+            return
+
+        values = self.adjustment_tree.item(selection[0])['values']
+        adjustment_id = values[0]
+
+        if not messagebox.askyesno("确认", f"确认要冲销调整 {adjustment_id} 吗?\n将创建相反的分录。"):
+            return
+
+        reason = simpledialog.askstring("冲销原因", "请输入冲销原因:")
+        if not reason:
+            return
+
+        try:
+            self.adjustment_manager.connect()
+            reversed_id = self.adjustment_manager.reverse_adjustment(
+                adjustment_id=adjustment_id,
+                reversed_by="系统用户",
+                reason=reason
+            )
+            self.adjustment_manager.disconnect()
+
+            messagebox.showinfo("成功", f"冲销成功!\n冲销调整ID: {reversed_id}")
+            self._refresh_adjustments()
+
+        except Exception as e:
+            messagebox.showerror("错误", f"冲销失败: {e}")
+
+    def _export_adjustments(self):
+        """Export adjustments to Excel."""
+        data = []
+        for item in self.adjustment_tree.get_children():
+            values = self.adjustment_tree.item(item)['values']
+            data.append(values)
+
+        if not data:
+            messagebox.showwarning("提示", "没有数据可导出")
+            return
+
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            initialfile=f"调整列表_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        )
+
+        if filename:
+            try:
+                df = pd.DataFrame(data, columns=[col for col in self.adjustment_tree["columns"]])
+                df.to_excel(filename, index=False)
+                messagebox.showinfo("成功", f"已导出到: {filename}")
+            except Exception as e:
+                messagebox.showerror("错误", f"导出失败: {e}")
