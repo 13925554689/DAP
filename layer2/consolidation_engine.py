@@ -203,7 +203,7 @@ class ConsolidationEngine:
         parent_entity_id: int,
         period: str
     ) -> List[Dict[str, Any]]:
-        """Generate elimination entries for intercompany transactions.
+        """Generate elimination entries for intercompany transactions using template library.
 
         Args:
             transactions: DataFrame of intercompany transactions
@@ -214,26 +214,48 @@ class ConsolidationEngine:
             List of elimination entry dictionaries
         """
         entries = []
+        template_usage_stats = {}  # Track template usage
 
         for _, txn in transactions.iterrows():
+            txn_dict = txn.to_dict()
             txn_type = txn["transaction_type"]
-            amount = txn["transaction_amount_cny"] or txn["transaction_amount"]
 
-            if txn_type == "销售商品":
-                # Eliminate internal revenue and cost of goods sold
-                entries.extend(self._eliminate_goods_sale(txn, amount, parent_entity_id, period))
+            # Get applicable templates from library
+            applicable_templates = self.elimination_library.get_applicable_templates(txn_dict)
 
-            elif txn_type == "提供服务":
-                # Eliminate internal service revenue
-                entries.extend(self._eliminate_service_revenue(txn, amount, parent_entity_id, period))
+            if applicable_templates:
+                # Use template library (automated approach)
+                logger.debug(f"Found {len(applicable_templates)} templates for {txn_type}")
 
-            elif txn_type == "借款":
-                # Eliminate internal debt
-                entries.extend(self._eliminate_internal_debt(txn, amount, parent_entity_id, period))
+                for template in applicable_templates:
+                    template_entries = self.elimination_library.generate_elimination_entry(
+                        template, txn_dict, parent_entity_id, period
+                    )
+                    entries.extend(template_entries)
 
-            elif txn_type == "资产转让":
-                # Eliminate unrealized gains on asset transfers
-                entries.extend(self._eliminate_asset_transfer(txn, amount, parent_entity_id, period))
+                    # Track template usage
+                    template_id = template.template_id
+                    template_usage_stats[template_id] = template_usage_stats.get(template_id, 0) + 1
+
+            else:
+                # Fallback to legacy methods if no template found
+                logger.warning(f"No template found for {txn_type}, using legacy method")
+                amount = txn["transaction_amount_cny"] or txn["transaction_amount"]
+
+                if txn_type == "销售商品":
+                    entries.extend(self._eliminate_goods_sale(txn, amount, parent_entity_id, period))
+                elif txn_type == "提供服务":
+                    entries.extend(self._eliminate_service_revenue(txn, amount, parent_entity_id, period))
+                elif txn_type == "借款":
+                    entries.extend(self._eliminate_internal_debt(txn, amount, parent_entity_id, period))
+                elif txn_type == "资产转让":
+                    entries.extend(self._eliminate_asset_transfer(txn, amount, parent_entity_id, period))
+
+        # Log template usage statistics
+        if template_usage_stats:
+            logger.info(f"Template usage: {len(template_usage_stats)} different templates used")
+            for template_id, count in sorted(template_usage_stats.items(), key=lambda x: x[1], reverse=True)[:5]:
+                logger.debug(f"  {template_id}: {count} times")
 
         # Save elimination entries to database
         self._save_elimination_entries(entries)
