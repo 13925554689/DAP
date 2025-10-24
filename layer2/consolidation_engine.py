@@ -36,6 +36,8 @@ class ConsolidationEngine:
         self.db_path = db_path
         self.conn: Optional[sqlite3.Connection] = None
         self.hierarchy_manager = GroupHierarchyManager(db_path)
+        self.reconciliation_engine = ReconciliationEngine(db_path)
+        self.adjustment_manager = AdjustmentManager(db_path)
 
     def connect(self):
         """Establish database connection."""
@@ -98,13 +100,21 @@ class ConsolidationEngine:
 
         logger.info(f"Consolidation scope: {len(scope_entity_ids)} entities")
 
-        # Step 2: Identify intercompany transactions
+        # Step 2: Perform intelligent reconciliation of intercompany transactions
+        reconciliation_result = self.reconciliation_engine.auto_reconcile_transactions(
+            entity_ids=scope_entity_ids,
+            period=period
+        )
+        logger.info(f"Reconciliation completed: {reconciliation_result.get('matched_count', 0)} matched, "
+                   f"{reconciliation_result.get('auto_adjusted_count', 0)} auto-adjusted")
+
+        # Step 3: Identify intercompany transactions (now with reconciliation status)
         interco_transactions = self._identify_intercompany_transactions(
             scope_entity_ids, period
         )
         logger.info(f"Found {len(interco_transactions)} intercompany transactions")
 
-        # Step 3: Generate elimination entries
+        # Step 4: Generate elimination entries
         elimination_entries = self._generate_elimination_entries(
             interco_transactions, parent_entity_id, period
         )
