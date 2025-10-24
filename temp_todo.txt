@@ -1,3 +1,0 @@
-Stage 2 follow-up: add lightweight stubs for Layer5 API handlers.
-Stage 3 preparation: clean up pandas/pydantic deprecation warnings before next stage.
-Deployment note: set DAP_PREFER_LIGHTWEIGHT=0 to exercise full implementations; keep 1 for lightweight smoke tests.
