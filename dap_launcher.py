@@ -25,6 +25,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from main_engine import get_dap_engine
 from gui_reconciliation_tabs import ReconciliationResultsTab, AdjustmentManagementTab
+from gui_project_management_tab import ProjectManagementTab
 
 # 配置GUI日志处理器
 class GUILogHandler(logging.Handler):
