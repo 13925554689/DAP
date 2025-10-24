@@ -70,9 +70,22 @@ class LightweightDataIngestor:
 class LightweightStorageManager:
     """In-memory storage manager used when the hybrid storage is unavailable."""
 
+    DEFAULT_PROJECT_ID = "default_project"
+
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._tables: Dict[str, pd.DataFrame] = {}
+        self._current_project_id = self.DEFAULT_PROJECT_ID
+        self._projects = {
+            self.DEFAULT_PROJECT_ID: {
+                "project_id": self.DEFAULT_PROJECT_ID,
+                "project_code": "DEFAULT",
+                "project_name": "默认项目",
+                "client_name": None,
+                "fiscal_year": None,
+                "fiscal_period": None,
+            }
+        }
 
     def store_cleaned_data(
         self, cleaned_data: Dict[str, pd.DataFrame], schema: Dict[str, Any]
@@ -88,6 +101,61 @@ class LightweightStorageManager:
         ]
 
     def get_view_list(self) -> List[Dict[str, Any]]:
+        return []
+
+    def list_projects(self) -> List[Dict[str, Any]]:
+        """List all projects"""
+        return list(self._projects.values())
+
+    def get_project(self, project_identifier: str) -> Optional[Dict[str, Any]]:
+        """Get project by ID, code, or name"""
+        # Try direct ID match
+        if project_identifier in self._projects:
+            return self._projects[project_identifier].copy()
+
+        # Try matching by code or name
+        for project in self._projects.values():
+            if (project.get("project_code") == project_identifier or
+                project.get("project_name") == project_identifier):
+                return project.copy()
+
+        return None
+
+    def create_project(
+        self,
+        project_name: str,
+        project_code: Optional[str] = None,
+        client_name: Optional[str] = None,
+        fiscal_year: Optional[str] = None,
+        fiscal_period: Optional[str] = None,
+    ) -> str:
+        """Create a new project"""
+        project_id = project_code or f"proj_{len(self._projects) + 1}"
+
+        self._projects[project_id] = {
+            "project_id": project_id,
+            "project_code": project_code or project_id,
+            "project_name": project_name,
+            "client_name": client_name,
+            "fiscal_year": fiscal_year,
+            "fiscal_period": fiscal_period,
+        }
+
+        return project_id
+
+    def set_current_project(self, project_id: str) -> bool:
+        """Set the current project"""
+        if project_id in self._projects:
+            self._current_project_id = project_id
+            return True
+        return False
+
+    def get_current_project(self) -> Optional[Dict[str, Any]]:
+        """Get the current project"""
+        return self._projects.get(self._current_project_id)
+
+    def list_entities_summary(self) -> List[Dict[str, Any]]:
+        """List entities summary (stub implementation)"""
         return []
 
 
