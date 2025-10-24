@@ -855,20 +855,26 @@ class DAPLauncher:
     def create_main_area(self, parent):
         """创建主要操作区域"""
         # 创建笔记本组件（标签页）
-        notebook = ttk.Notebook(parent)
-        notebook.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
-        
+        self.notebook = ttk.Notebook(parent)
+        self.notebook.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+
         # 数据导入标签页
-        self.create_import_tab(notebook)
-        
+        self.create_import_tab(self.notebook)
+
         # 系统状态标签页
-        self.create_status_tab(notebook)
-        
+        self.create_status_tab(self.notebook)
+
         # 数据管理标签页
-        self.create_data_tab(notebook)
-        
+        self.create_data_tab(self.notebook)
+
         # AI分析标签页
-        self.create_ai_tab(notebook)
+        self.create_ai_tab(self.notebook)
+
+        # 对账结果展示标签页
+        self.create_reconciliation_tab(self.notebook)
+
+        # 调整管理标签页
+        self.create_adjustment_tab(self.notebook)
     
     def create_import_tab(self, parent):
         """创建数据导入标签页"""
