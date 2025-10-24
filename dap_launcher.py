@@ -1280,6 +1280,18 @@ class DAPLauncher:
             parent.add(placeholder_frame, text="调整管理")
             ttk.Label(placeholder_frame, text=f"调整管理Tab加载失败: {str(e)}").pack(pady=20)
 
+    def create_project_management_tab(self, parent):
+        """创建项目管理标签页"""
+        try:
+            self.project_management_tab = ProjectManagementTab(parent, self.dap_engine)
+            logging.info("项目管理Tab已创建")
+        except Exception as e:
+            logging.error(f"创建项目管理Tab失败: {e}")
+            # 创建一个占位符标签页
+            placeholder_frame = ttk.Frame(parent, padding="10")
+            parent.add(placeholder_frame, text="项目管理")
+            ttk.Label(placeholder_frame, text=f"项目管理Tab加载失败: {str(e)}").pack(pady=20)
+
     def create_status_bar(self, parent):
         """创建状态栏"""
         status_frame = ttk.Frame(parent)
