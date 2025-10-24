@@ -2528,7 +2528,48 @@ API服务: {'运行中' if status_info.get('api_server_running') else '未启动
             # 启动后台线程
             import threading
             threading.Thread(target=generate_report_thread, daemon=True).start()
-    
+
+    def open_financial_viewer(self):
+        """打开财务报表综合查看器"""
+        if not self.dap_engine:
+            messagebox.showerror("错误", "DAP引擎未初始化")
+            return
+
+        try:
+            # 导入财务报表查看器模块
+            from gui_financial_viewer import FinancialReportViewer
+
+            # 检查是否有数据
+            if not self._check_financial_data_availability():
+                result = messagebox.askyesno(
+                    "数据提示",
+                    "系统中暂无数据。\n\n是否仍要打开报表查看器?\n(可以查看示例数据或等待数据导入后使用)"
+                )
+                if not result:
+                    return
+
+            # 创建并显示报表查看器
+            viewer = FinancialReportViewer(
+                master=self.root,
+                storage_manager=self.dap_engine.storage_manager,
+                db_path=self.dap_engine.db_path
+            )
+
+            logging.info("财务报表查看器已打开")
+
+        except ImportError as e:
+            logging.error(f"导入财务报表查看器失败: {e}")
+            messagebox.showerror(
+                "模块错误",
+                f"无法导入财务报表查看器模块:\n{str(e)}\n\n请确保 gui_financial_viewer.py 文件存在"
+            )
+        except Exception as e:
+            logging.error(f"打开财务报表查看器失败: {e}", exc_info=True)
+            messagebox.showerror(
+                "错误",
+                f"打开财务报表查看器时发生错误:\n{str(e)}"
+            )
+
     def _check_financial_data_availability(self) -> bool:
             """检查财务数据可用性"""
             try:
