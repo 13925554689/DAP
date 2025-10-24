@@ -120,22 +120,22 @@ class ConsolidationEngine:
         )
         logger.info(f"Generated {len(elimination_entries)} elimination entries")
 
-        # Step 4: Retrieve individual entity financials
+        # Step 5: Retrieve individual entity financials
         entity_financials = self._get_entity_financials(
             scope_entity_ids, period, report_type
         )
 
-        # Step 5: Perform consolidation
+        # Step 6: Perform consolidation
         consolidated_data = self._perform_consolidation(
             entity_financials, elimination_entries, report_type
         )
 
-        # Step 6: Calculate minority interest
+        # Step 7: Calculate minority interest
         minority_interest = self._calculate_minority_interest(
             scope_entity_ids, entity_financials, parent_entity_id
         )
 
-        # Step 7: Create consolidation metadata
+        # Step 8: Create consolidation metadata
         consolidation_id = self._create_consolidation_metadata(
             parent_entity_id, period, scope_entity_ids,
             consolidated_data, len(elimination_entries)
@@ -148,6 +148,7 @@ class ConsolidationEngine:
             "period": period,
             "scope_entity_ids": scope_entity_ids,
             "scope_entity_count": len(scope_entity_ids),
+            "reconciliation_result": reconciliation_result,
             "interco_transaction_count": len(interco_transactions),
             "elimination_count": len(elimination_entries),
             "minority_interest": minority_interest,
