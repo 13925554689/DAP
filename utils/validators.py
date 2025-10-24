@@ -1,1 +1,291 @@
-""" DAP - 杈撳叆楠岃瘉妯″潡 鎻愪緵缁熶竴鐨勬暟鎹獙璇佸姛鑳?"""  import re import os import tempfile from pathlib import Path from typing import Dict, Any, List, Optional, Union from pydantic import BaseModel, Field, field_validator from .exceptions import ValidationError, SecurityError   class ProcessingRequest(BaseModel):     """鏁版嵁澶勭悊璇锋眰楠岃瘉妯″瀷"""      data_source_path: str = Field(..., description="鏁版嵁婧愯矾寰?)     options: Dict[str, Any] = Field(default_factory=dict, description="澶勭悊閫夐」")      @field_validator("data_source_path")     def validate_path(cls, value: str) -> str:         if not value or not value.strip():             raise ValidationError("鏁版嵁婧愯矾寰勪笉鑳戒负绌?)          path = Path(value)          if not path.exists():             raise ValidationError(f"鏁版嵁婧愪笉瀛樺湪: {value}")          if not path.is_file() and not path.is_dir():             raise ValidationError(f"鏃犳晥鐨勮矾寰勭被鍨? {value}")          if not os.access(path, os.R_OK):             raise ValidationError(f"鏁版嵁婧愭棤娉曡鍙? {value}")          return str(path.absolute())      @field_validator("options", mode="before")     def validate_options(cls, value: Any) -> Dict[str, Any]:         if not isinstance(value, dict):             raise ValidationError("閫夐」蹇呴』鏄瓧鍏哥被鍨?)          allowed_options = {             "start_api_server",             "auto_ai_analysis",             "batch_size",             "parallel_processing",             "max_workers",         }          for key in value.keys():             if not isinstance(key, str):                 raise ValidationError(f"閫夐」閿繀椤绘槸瀛楃涓? {key}")             if key not in allowed_options:                 print(f"璀﹀憡: 鏈煡閫夐」 {key}")          return value   class SQLQueryValidator:     """SQL鏌ヨ楠岃瘉鍣?""      # 鍗遍櫓鐨凷QL鍏抽敭璇?    DANGEROUS_KEYWORDS = {         "drop",         "delete",         "truncate",         "alter",         "create",         "insert",         "update",         "grant",         "revoke",         "exec",         "execute",         "sp_",         "xp_",     }      # 鍏佽鐨勮〃鍚嶆ā寮?    TABLE_NAME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")      @classmethod     def validate_table_name(cls, table_name: str) -> str:         """楠岃瘉琛ㄥ悕瀹夊叏鎬?""         if not table_name or not table_name.strip():             raise SecurityError("琛ㄥ悕涓嶈兘涓虹┖")          table_name = table_name.strip()          # 妫€鏌ヨ〃鍚嶆牸寮?        if not cls.TABLE_NAME_PATTERN.match(table_name):             raise SecurityError(f"鏃犳晥鐨勮〃鍚嶆牸寮? {table_name}")          # 妫€鏌ラ暱搴?        if len(table_name) > 64:             raise SecurityError(f"琛ㄥ悕杩囬暱: {table_name}")          # 妫€鏌ユ槸鍚﹀寘鍚嵄闄╁叧閿瘝         table_lower = table_name.lower()         for keyword in cls.DANGEROUS_KEYWORDS:             if keyword in table_lower:                 raise SecurityError(f"琛ㄥ悕鍖呭惈鍗遍櫓鍏抽敭璇? {table_name}")          return table_name      @classmethod     def validate_column_name(cls, column_name: str) -> str:         """楠岃瘉鍒楀悕瀹夊叏鎬?""         if not column_name or not column_name.strip():             raise SecurityError("鍒楀悕涓嶈兘涓虹┖")          column_name = column_name.strip()          # 浣跨敤鐩稿悓鐨勬ā寮忛獙璇佸垪鍚?        if not cls.TABLE_NAME_PATTERN.match(column_name):             raise SecurityError(f"鏃犳晥鐨勫垪鍚嶆牸寮? {column_name}")          if len(column_name) > 64:             raise SecurityError(f"鍒楀悕杩囬暱: {column_name}")          return column_name      @classmethod     def validate_query_safety(cls, query: str) -> str:         """楠岃瘉鏌ヨ璇彞瀹夊叏鎬?""         if not query or not query.strip():             raise SecurityError("鏌ヨ璇彞涓嶈兘涓虹┖")          query_lower = query.lower().strip()          # 妫€鏌ユ槸鍚︿负SELECT璇彞         if not query_lower.startswith("select"):             raise SecurityError("鍙厑璁窼ELECT鏌ヨ")          # 妫€鏌ュ嵄闄╁叧閿瘝         for keyword in cls.DANGEROUS_KEYWORDS:             if keyword in query_lower:                 raise SecurityError(f"鏌ヨ鍖呭惈鍗遍櫓鍏抽敭璇? {keyword}")          # 妫€鏌ュ垎鍙凤紙闃叉SQL娉ㄥ叆锛?        if ";" in query and not query.strip().endswith(";"):             raise SecurityError("鏌ヨ涓寘鍚鏉¤鍙?)          return query.strip()   class FileValidator:     """鏂囦欢楠岃瘉鍣?""      # 鍏佽鐨勬枃浠舵墿灞曞悕     ALLOWED_EXTENSIONS = {         ".xlsx",         ".xls",         ".csv",         ".zip",         ".rar",         ".7z",         ".mdb",         ".accdb",         ".db",         ".sqlite",         ".ais",         ".bak",         ".sql",     }      # 鏈€澶ф枃浠跺ぇ灏?(100MB)     MAX_FILE_SIZE = 100 * 1024 * 1024      @classmethod     def validate_file_path(cls, file_path: str) -> str:         """楠岃瘉鏂囦欢璺緞"""         if not file_path or not file_path.strip():             raise ValidationError("鏂囦欢璺緞涓嶈兘涓虹┖")          path = Path(file_path).expanduser()         resolved_path = path.resolve()          if not resolved_path.exists():             raise ValidationError(f"鏂囦欢涓嶅瓨鍦? {file_path}")          if not resolved_path.is_file():             raise ValidationError(f"璺緞涓嶆槸鏂囦欢: {file_path}")          if resolved_path.suffix.lower() not in cls.ALLOWED_EXTENSIONS:             raise ValidationError(f"涓嶆敮鎸佺殑鏂囦欢绫诲瀷: {resolved_path.suffix}")          try:             file_size = os.path.getsize(resolved_path)         except OSError as exc:             raise ValidationError(f"鏃犳硶鑾峰彇鏂囦欢澶у皬: {exc}") from exc          if file_size > cls.MAX_FILE_SIZE:             raise ValidationError(f"鏂囦欢杩囧ぇ: {file_size / 1024 / 1024:.1f}MB (鏈€澶?00MB)")          if not os.access(resolved_path, os.R_OK):             raise ValidationError(f"鏂囦欢鏃犳硶璇诲彇: {file_path}")          try:             resolved_path.relative_to(Path.cwd().resolve())         except ValueError:             allowed_roots = [                 Path.cwd(),                 Path(tempfile.gettempdir()),                 Path("C\\Data"),                 Path("/data"),             ]             for root in allowed_roots:                 try:                     root_resolved = root.resolve()                 except Exception:                     continue                  if not root_resolved.exists():                     continue                  try:                     resolved_path.relative_to(root_resolved)                     break                 except ValueError:                     continue             else:                 raise SecurityError(f"涓嶅厑璁歌闂璺緞: {file_path}")          return str(resolved_path)      @classmethod     def validate_directory_path(cls, dir_path: str) -> str:         """楠岃瘉鐩綍璺緞"""         if not dir_path or not dir_path.strip():             raise ValidationError("鐩綍璺緞涓嶈兘涓虹┖")          path = Path(dir_path)         resolved_path = path.resolve()          if not resolved_path.exists():             raise ValidationError(f"鐩綍涓嶅瓨鍦? {dir_path}")          if not resolved_path.is_dir():             raise ValidationError(f"璺緞涓嶆槸鐩綍: {dir_path}")          try:             resolved_path.relative_to(Path.cwd().resolve())         except ValueError:             allowed_roots = [                 Path.cwd(),                 Path(tempfile.gettempdir()),                 Path("C\\Data"),                 Path("/data"),             ]             for root in allowed_roots:                 try:                     root_resolved = root.resolve()                 except Exception:                     continue                  if not root_resolved.exists():                     continue                  try:                     resolved_path.relative_to(root_resolved)                     break                 except ValueError:                     continue             else:                 raise SecurityError(f"涓嶅厑璁歌闂鐩綍: {dir_path}")          if not os.access(resolved_path, os.R_OK):             raise ValidationError(f"鐩綍鏃犳硶璇诲彇: {dir_path}")          return str(resolved_path)   def validate_api_input(     data: Dict[str, Any], required_fields: List[str] = None ) -> Dict[str, Any]:     """楠岃瘉API杈撳叆鏁版嵁"""     if not isinstance(data, dict):         raise ValidationError("杈撳叆鏁版嵁蹇呴』鏄瓧鍏哥被鍨?)      if required_fields:         missing_fields = [field for field in required_fields if field not in data]         if missing_fields:             raise ValidationError(f"缂哄皯蹇呴渶瀛楁: {', '.join(missing_fields)}")      return data
+"""
+DAP - Input Validation Module
+Provides unified data validation functionality
+"""
+
+import re
+import os
+import tempfile
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Union
+from pydantic import BaseModel, Field, field_validator
+from .exceptions import ValidationError, SecurityError
+
+
+class ProcessingRequest(BaseModel):
+    """Data processing request validation model"""
+
+    data_source_path: str = Field(..., description="Data source path")
+    options: Dict[str, Any] = Field(default_factory=dict, description="Processing options")
+
+    @field_validator("data_source_path")
+    def validate_path(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValidationError("Data source path cannot be empty")
+
+        path = Path(value)
+
+        if not path.exists():
+            raise ValidationError(f"Data source does not exist: {value}")
+
+        if not path.is_file() and not path.is_dir():
+            raise ValidationError(f"Invalid path type: {value}")
+
+        if not os.access(path, os.R_OK):
+            raise ValidationError(f"Data source is not readable: {value}")
+
+        return str(path.absolute())
+
+    @field_validator("options", mode="before")
+    def validate_options(cls, value: Any) -> Dict[str, Any]:
+        if not isinstance(value, dict):
+            raise ValidationError("Options must be a dictionary")
+
+        allowed_options = {
+            "start_api_server",
+            "auto_ai_analysis",
+            "batch_size",
+            "parallel_processing",
+            "max_workers",
+        }
+
+        for key in value.keys():
+            if not isinstance(key, str):
+                raise ValidationError(f"Option key must be string: {key}")
+            if key not in allowed_options:
+                print(f"Warning: unknown option {key}")
+
+        return value
+
+
+class SQLQueryValidator:
+    """SQL query validator"""
+
+    # Dangerous SQL keywords
+    DANGEROUS_KEYWORDS = {
+        "drop",
+        "delete",
+        "truncate",
+        "alter",
+        "create",
+        "insert",
+        "update",
+        "grant",
+        "revoke",
+        "exec",
+        "execute",
+        "sp_",
+        "xp_",
+    }
+
+    # Allowed table name pattern
+    TABLE_NAME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")
+
+    @classmethod
+    def validate_table_name(cls, table_name: str) -> str:
+        """Validate table name security"""
+        if not table_name or not table_name.strip():
+            raise SecurityError("Table name cannot be empty")
+
+        table_name = table_name.strip()
+
+        # Check table name format
+        if not cls.TABLE_NAME_PATTERN.match(table_name):
+            raise SecurityError(f"Invalid table name format: {table_name}")
+
+        # Check length
+        if len(table_name) > 64:
+            raise SecurityError(f"Table name too long: {table_name}")
+
+        # Check for dangerous keywords
+        table_lower = table_name.lower()
+        for keyword in cls.DANGEROUS_KEYWORDS:
+            if keyword in table_lower:
+                raise SecurityError(f"Table name contains dangerous keyword: {table_name}")
+
+        return table_name
+
+    @classmethod
+    def validate_column_name(cls, column_name: str) -> str:
+        """Validate column name security"""
+        if not column_name or not column_name.strip():
+            raise SecurityError("Column name cannot be empty")
+
+        column_name = column_name.strip()
+
+        # Use same pattern for column validation
+        if not cls.TABLE_NAME_PATTERN.match(column_name):
+            raise SecurityError(f"Invalid column name format: {column_name}")
+
+        if len(column_name) > 64:
+            raise SecurityError(f"Column name too long: {column_name}")
+
+        return column_name
+
+    @classmethod
+    def validate_query_safety(cls, query: str) -> str:
+        """Validate query statement security"""
+        if not query or not query.strip():
+            raise SecurityError("Query statement cannot be empty")
+
+        query_lower = query.lower().strip()
+
+        # Check if SELECT statement
+        if not query_lower.startswith("select"):
+            raise SecurityError("Only SELECT queries are allowed")
+
+        # Check for dangerous keywords
+        for keyword in cls.DANGEROUS_KEYWORDS:
+            if keyword in query_lower:
+                raise SecurityError(f"Query contains dangerous keyword: {keyword}")
+
+        # Check semicolon (prevent SQL injection)
+        if ";" in query and not query.strip().endswith(";"):
+            raise SecurityError("Query contains multiple statements")
+
+        return query.strip()
+
+
+class FileValidator:
+    """File validator"""
+
+    # Allowed file extensions
+    ALLOWED_EXTENSIONS = {
+        ".xlsx",
+        ".xls",
+        ".csv",
+        ".zip",
+        ".rar",
+        ".7z",
+        ".mdb",
+        ".accdb",
+        ".db",
+        ".sqlite",
+        ".ais",
+        ".bak",
+        ".sql",
+    }
+
+    # Maximum file size (100MB)
+    MAX_FILE_SIZE = 100 * 1024 * 1024
+
+    @classmethod
+    def validate_file_path(cls, file_path: str) -> str:
+        """Validate file path"""
+        if not file_path or not file_path.strip():
+            raise ValidationError("File path cannot be empty")
+
+        path = Path(file_path).expanduser()
+        resolved_path = path.resolve()
+
+        if not resolved_path.exists():
+            raise ValidationError(f"File does not exist: {file_path}")
+
+        if not resolved_path.is_file():
+            raise ValidationError(f"Path is not a file: {file_path}")
+
+        if resolved_path.suffix.lower() not in cls.ALLOWED_EXTENSIONS:
+            raise ValidationError(f"Unsupported file type: {resolved_path.suffix}")
+
+        try:
+            file_size = os.path.getsize(resolved_path)
+        except OSError as exc:
+            raise ValidationError(f"Cannot get file size: {exc}") from exc
+
+        if file_size > cls.MAX_FILE_SIZE:
+            raise ValidationError(f"File too large: {file_size / 1024 / 1024:.1f}MB (max 100MB)")
+
+        if not os.access(resolved_path, os.R_OK):
+            raise ValidationError(f"File not readable: {file_path}")
+
+        # Security check - validate path is within allowed directories
+        try:
+            resolved_path.relative_to(Path.cwd().resolve())
+        except ValueError:
+            # Not in current directory, check other allowed roots
+            allowed_roots = [
+                Path.cwd(),
+                Path(tempfile.gettempdir()),
+                Path("C:\\Data"),
+                Path("/data"),
+            ]
+            for root in allowed_roots:
+                try:
+                    root_resolved = root.resolve()
+                except Exception:
+                    continue
+
+                if not root_resolved.exists():
+                    continue
+
+                try:
+                    resolved_path.relative_to(root_resolved)
+                    break
+                except ValueError:
+                    continue
+            else:
+                raise SecurityError(f"Access to path not allowed: {file_path}")
+
+        return str(resolved_path)
+
+    @classmethod
+    def validate_directory_path(cls, dir_path: str) -> str:
+        """Validate directory path"""
+        if not dir_path or not dir_path.strip():
+            raise ValidationError("Directory path cannot be empty")
+
+        path = Path(dir_path)
+        resolved_path = path.resolve()
+
+        if not resolved_path.exists():
+            raise ValidationError(f"Directory does not exist: {dir_path}")
+
+        if not resolved_path.is_dir():
+            raise ValidationError(f"Path is not a directory: {dir_path}")
+
+        # Security check
+        try:
+            resolved_path.relative_to(Path.cwd().resolve())
+        except ValueError:
+            allowed_roots = [
+                Path.cwd(),
+                Path(tempfile.gettempdir()),
+                Path("C:\\Data"),
+                Path("/data"),
+            ]
+            for root in allowed_roots:
+                try:
+                    root_resolved = root.resolve()
+                except Exception:
+                    continue
+
+                if not root_resolved.exists():
+                    continue
+
+                try:
+                    resolved_path.relative_to(root_resolved)
+                    break
+                except ValueError:
+                    continue
+            else:
+                raise SecurityError(f"Access to directory not allowed: {dir_path}")
+
+        if not os.access(resolved_path, os.R_OK):
+            raise ValidationError(f"Directory not readable: {dir_path}")
+
+        return str(resolved_path)
+
+
+def validate_api_input(
+    data: Dict[str, Any], required_fields: List[str] = None
+) -> Dict[str, Any]:
+    """Validate API input data"""
+    if not isinstance(data, dict):
+        raise ValidationError("Input data must be a dictionary")
+
+    if required_fields:
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            raise ValidationError(f"Missing required fields: {', '.join(missing_fields)}")
+
+    return data
