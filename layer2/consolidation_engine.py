@@ -620,6 +620,83 @@ class ConsolidationEngine:
         logger.info(f"Created consolidation metadata: ID {consolidation_id}")
         return consolidation_id
 
+    def create_consolidation_adjustment(
+        self,
+        entity_id: int,
+        period: str,
+        adjustment_type: str,
+        entries: List[Dict[str, Any]],
+        value_dimension: str = "consolidated"
+    ) -> int:
+        """Create a consolidation adjustment with audit trail.
+
+        Args:
+            entity_id: Entity ID
+            period: Fiscal period
+            adjustment_type: Type of adjustment (单体调整, 公允价值调整, 合并调整, etc.)
+            entries: List of journal entry dicts with debit/credit accounts and amounts
+            value_dimension: Value dimension for the adjustment
+
+        Returns:
+            Adjustment ID
+        """
+        return self.adjustment_manager.create_adjustment(
+            adjustment_type=adjustment_type,
+            entity_id=entity_id,
+            period=period,
+            entries=entries,
+            value_dimension=value_dimension
+        )
+
+    def get_adjustment_trail(self, adjustment_id: int) -> List[Dict[str, Any]]:
+        """Get complete audit trail for an adjustment.
+
+        Args:
+            adjustment_id: Adjustment ID
+
+        Returns:
+            List of adjustment history records
+        """
+        return self.adjustment_manager.get_adjustment_trail(adjustment_id)
+
+    def compare_before_after_adjustment(
+        self,
+        entity_id: int,
+        period: str,
+        adjustment_id: int
+    ) -> Dict[str, Any]:
+        """Compare data before and after an adjustment.
+
+        Args:
+            entity_id: Entity ID
+            period: Fiscal period
+            adjustment_id: Adjustment ID
+
+        Returns:
+            Dictionary with before/after comparison
+        """
+        return self.adjustment_manager.compare_before_after(
+            entity_id, period, adjustment_id
+        )
+
+    def get_reconciliation_report(
+        self,
+        entity_ids: List[int],
+        period: str
+    ) -> Dict[str, Any]:
+        """Get detailed reconciliation report.
+
+        Args:
+            entity_ids: List of entity IDs
+            period: Fiscal period
+
+        Returns:
+            Reconciliation report with matches, differences, and unmatched transactions
+        """
+        return self.reconciliation_engine.generate_reconciliation_report(
+            entity_ids, period
+        )
+
 
 if __name__ == "__main__":
     # Test consolidation engine
