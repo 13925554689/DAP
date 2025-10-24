@@ -20,6 +20,7 @@ import pandas as pd
 from layer2.group_hierarchy_manager import GroupHierarchyManager
 from layer2.reconciliation_engine import ReconciliationEngine
 from layer2.adjustment_manager import AdjustmentManager
+from layer2.elimination_template_library import EliminationTemplateLibrary
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,8 @@ class ConsolidationEngine:
         self.hierarchy_manager = GroupHierarchyManager(db_path)
         self.reconciliation_engine = ReconciliationEngine(db_path)
         self.adjustment_manager = AdjustmentManager(db_path)
+        self.elimination_library = EliminationTemplateLibrary()
+        logger.info(f"Loaded {len(self.elimination_library.templates)} elimination templates")
 
     def connect(self):
         """Establish database connection."""
