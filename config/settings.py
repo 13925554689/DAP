@@ -11,6 +11,13 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 
+# 加载.env文件
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv未安装，使用系统环境变量
+
 logger = logging.getLogger(__name__)
 
 

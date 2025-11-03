@@ -139,6 +139,11 @@ except ImportError:
     GitHubBackupManager = None
 
 try:
+    from layer5.file_change_monitor import FileChangeMonitor
+except ImportError:
+    FileChangeMonitor = None
+
+try:
     from layer5.enhanced_api_server import start_api_server
 except ImportError:
     try:
@@ -617,7 +622,8 @@ class EnhancedDAPEngine:
                 if backup_config.enabled:
                     try:
                         self.github_backup_manager = GitHubBackupManager(backup_config)
-                        self.github_backup_manager.start()
+                        # 不启动定时备份，只使用文件变更触发
+                        self.github_backup_manager.start(enable_scheduler=False)
                         try:
                             self.github_backup_manager.run_backup(
                                 triggered_by="startup"
@@ -627,15 +633,51 @@ class EnhancedDAPEngine:
                                 "GitHub startup backup failed: %s",
                                 exc,
                             )
+                        
+                        # 启动文件变更监控器
+                        if FileChangeMonitor:
+                            try:
+                                # 监控系统程序文件（Python代码、配置文件等）
+                                watch_paths = [
+                                    'layer1', 'layer2', 'layer3', 'layer4', 'layer5',
+                                    'config', 'utils',
+                                    'main_engine.py', 'dap_launcher.py',
+                                    '.env'
+                                ]
+                                
+                                def on_file_change(changed_files):
+                                    """文件变更时的回调函数"""
+                                    logger.info(f"检测到程序文件变更，立即触发GitHub备份")
+                                    self.github_backup_manager.run_backup(triggered_by="file_change")
+                                
+                                self.file_change_monitor = FileChangeMonitor(
+                                    watch_paths=watch_paths,
+                                    callback=on_file_change,
+                                    extensions={'.py', '.yaml', '.yml', '.json', '.env'},
+                                    check_interval=2,  # 2秒检查一次（快速响应）
+                                    debounce_seconds=2  # 2秒防抖（随时修改随时备份）
+                                )
+                                self.file_change_monitor.start()
+                                logger.info("文件变更监控器已启动，程序修改将立即触发备份（2秒内响应）")
+                            except Exception as exc:
+                                logger.warning(f"文件变更监控器启动失败: {exc}")
+                                self.file_change_monitor = None
+                        else:
+                            logger.debug("FileChangeMonitor component not available.")
+                            self.file_change_monitor = None
+                            
                     except Exception as exc:
                         self.github_backup_manager = None
+                        self.file_change_monitor = None
                         logger.warning(
                             "GitHub backup manager initialization failed: %s", exc
                         )
                 else:
                     logger.info("GitHub backup manager disabled in configuration")
+                    self.file_change_monitor = None
             elif GitHubBackupManager is None:
                 logger.debug("GitHubBackupManager component not available.")
+                self.file_change_monitor = None
         except Exception as exc:
             logger.error(f"Component initialization failed: {exc}")
             raise
@@ -643,7 +685,7 @@ class EnhancedDAPEngine:
     def process(
         self, data_source_path: str, options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """一键处理主流程"""
+        """一键处理主流程（强制项目管理）"""
         if self.processing:
             return {
                 "success": False,
@@ -688,6 +730,32 @@ class EnhancedDAPEngine:
             validated_options.setdefault("start_api_server", True)
             validated_options.setdefault("auto_ai_analysis", False)
             self._merge_project_options(validated_options)
+            
+            # ========== 强制项目管理逻辑 ==========
+            # 检查是否为测试模式（允许跳过项目）
+            if not validated_options.get("skip_project_check", False):
+                # 强制要求项目信息
+                if not any([
+                    validated_options.get("project_id"),
+                    validated_options.get("project_name"),
+                    validated_options.get("project_code")
+                ]):
+                    error_msg = "必须先创建或选择项目。请提供project_id、project_name或project_code参数。"
+                    logger.error(error_msg)
+                    result = {
+                        "success": False,
+                        "error": error_msg,
+                        "error_code": "PROJECT_REQUIRED",
+                        "current_step": "项目验证",
+                        "progress": 0,
+                        "message": "DAP系统要求所有数据处理必须关联到具体项目。这确保了数据的组织性和可追溯性。",
+                        "suggestion": "请先在项目管理模块中创建项目，或在调用process时提供project_name参数。"
+                    }
+                    self.last_result = result
+                    self.processing = False
+                    return result
+            # ========================================
+            
             project_context = self._prepare_project_context(validated_options)
 
             # 第一层：数据接入与清洗
@@ -1382,6 +1450,7 @@ class EnhancedDAPEngine:
                 ("dimension_organizer", "维度组织器"),
                 ("output_formatter", "输出格式化器"),
                 ("agent_bridge", "AI代理桥接"),
+                ("file_change_monitor", "文件变更监控器"),
                 ("github_backup_manager", "GitHub自动备份管理器"),
             ]
             for component_name, display_name in components:

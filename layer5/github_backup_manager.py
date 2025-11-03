@@ -65,10 +65,22 @@ class GitHubBackupManager:
             self.logger.info("GitHub backup manager initialised in disabled state.")
 
     # --------------------------------------------------------------------- API
-    def start(self) -> None:
-        """Start the background scheduler if enabled."""
+    def start(self, enable_scheduler: bool = False) -> None:
+        """Start the background scheduler if enabled.
+        
+        Args:
+            enable_scheduler: 是否启动定时备份调度器，False表示只使用文件变更触发
+        """
         if not self.config.enabled:
             return
+        
+        # 默认不启动定时备份，只使用文件变更触发
+        if not enable_scheduler:
+            self.logger.info(
+                "GitHub backup manager started (file-change triggered mode only, no scheduled backups)."
+            )
+            return
+            
         if self._worker_thread and self._worker_thread.is_alive():
             return
 

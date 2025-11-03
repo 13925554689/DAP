@@ -60,6 +60,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 集成外部服务路由
+try:
+    from layer3.extended_api_server import external_router
+    app.include_router(external_router)
+    logger.info("✅ 外部服务API路由已集成")
+except Exception as e:
+    logger.warning(f"⚠️ 无法加载外部服务API路由: {e}")
+
 class DAPAPIServer:
     """DAP API服务器"""
     

@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAP - 数据分析平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 16px;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .project-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .project-item {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        .project-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .project-item h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .project-item p {
+            color: #666;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-completed {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-deleted {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .service-status {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .service-item {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .service-online {
+            border-left: 4px solid #28a745;
+        }
+
+        .service-offline {
+            border-left: 4px solid #dc3545;
+        }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .report-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+            cursor: pointer;
+        }
+
+        .report-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .report-card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .report-card p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .data-table tr:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 DAP</h1>
+            <p>Data Analytics Platform - 智能数据分析平台</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('projects')">项目管理</button>
+            <button class="tab" onclick="switchTab('query')">智能查询</button>
+            <button class="tab" onclick="switchTab('reports')">财务报表</button>
+            <button class="tab" onclick="switchTab('consolidation')">合并报表</button>
+            <button class="tab" onclick="switchTab('audit')">审计底稿</button>
+            <button class="tab" onclick="switchTab('services')">外部服务</button>
+            <button class="tab" onclick="switchTab('system')">系统信息</button>
+        </div>
+
+        <!-- 项目管理标签页 -->
+        <div id="projects-tab" class="tab-content active">
+            <div class="card">
+                <h3>创建新项目</h3>
+                <form id="create-project-form">
+                    <div class="form-group">
+                        <label>项目名称 *</label>
+                        <input type="text" id="project_name" required placeholder="例如：2024年度审计项目">
+                    </div>
+                    <div class="form-group">
+                        <label>客户名称</label>
+                        <input type="text" id="client_name" placeholder="例如：XX有限公司">
+                    </div>
+                    <div class="form-group">
+                        <label>行业</label>
+                        <input type="text" id="industry" placeholder="例如：制造业">
+                    </div>
+                    <div class="form-group">
+                        <label>项目描述</label>
+                        <textarea id="description" rows="3" placeholder="项目简要描述"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">创建项目</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>我的项目</h3>
+                <div id="project-list" class="project-list">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 智能查询标签页 -->
+        <div id="query-tab" class="tab-content">
+            <div class="card">
+                <h3>自然语言查询</h3>
+                <div class="form-group">
+                    <label>输入您的查询</label>
+                    <textarea id="nl-query-input" rows="3" placeholder="例如：查询所有资产类科目的余额"></textarea>
+                </div>
+                <button onclick="executeNLQuery()" class="btn btn-primary">执行查询</button>
+                <div id="nl-query-result" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>数据查询</h3>
+                <div class="form-group">
+                    <label>选择查询类型</label>
+                    <select id="data-query-type">
+                        <option value="account_balance">科目余额表</option>
+                        <option value="account_detail">科目明细账</option>
+                        <option value="voucher">凭证查询</option>
+                        <option value="custom">自定义查询</option>
+                    </select>
+                </div>
+                <div class="form-group" id="account-code-group" style="display: none;">
+                    <label>科目编码</label>
+                    <input type="text" id="account-code" placeholder="例如：1001">
+                </div>
+                <div class="form-group">
+                    <label>会计期间</label>
+                    <input type="text" id="query-period" placeholder="例如：2024年度">
+                </div>
+                <button onclick="executeDataQuery()" class="btn btn-primary">执行查询</button>
+                <div id="data-query-result" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- 财务报表标签页 -->
+        <div id="reports-tab" class="tab-content">
+            <div class="card">
+                <h3>财务报表生成</h3>
+                <div class="form-group">
+                    <label>选择报表类型</label>
+                    <select id="report-type">
+                        <option value="account_balance">科目余额表</option>
+                        <option value="account_detail">科目明细账</option>
+                        <option value="balance_sheet">资产负债表</option>
+                        <option value="income_statement">利润表</option>
+                        <option value="cash_flow">现金流量表</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>会计期间</label>
+                    <input type="text" id="report-period" placeholder="例如：2024年度">
+                </div>
+                <div class="form-group">
+                    <label>输出格式</label>
+                    <select id="report-format">
+                        <option value="excel">Excel</option>
+                        <option value="pdf">PDF</option>
+                        <option value="html">HTML</option>
+                    </select>
+                </div>
+                <button onclick="generateReport()" class="btn btn-primary">生成报表</button>
+                <div id="report-result" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>标准报表模板</h3>
+                <div class="report-grid">
+                    <div class="report-card" onclick="generateStandardReport('balance_sheet')">
+                        <h4>资产负债表</h4>
+                        <p>反映企业财务状况的静态报表</p>
+                    </div>
+                    <div class="report-card" onclick="generateStandardReport('income_statement')">
+                        <h4>利润表</h4>
+                        <p>反映企业经营成果的动态报表</p>
+                    </div>
+                    <div class="report-card" onclick="generateStandardReport('cash_flow')">
+                        <h4>现金流量表</h4>
+                        <p>反映企业现金流入流出情况</p>
+                    </div>
+                    <div class="report-card" onclick="generateStandardReport('account_balance')">
+                        <h4>科目余额表</h4>
+                        <p>按科目汇总的期初、发生额和期末余额</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 合并报表标签页 -->
+        <div id="consolidation-tab" class="tab-content">
+            <div class="card">
+                <h3>集团合并报表</h3>
+                <div class="form-group">
+                    <label>母公司实体</label>
+                    <select id="parent-entity">
+                        <option value="">请选择母公司</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>会计期间</label>
+                    <input type="text" id="consolidation-period" placeholder="例如：2024年度">
+                </div>
+                <div class="form-group">
+                    <label>合并报表类型</label>
+                    <select id="consolidation-report-type">
+                        <option value="balance_sheet">合并资产负债表</option>
+                        <option value="income_statement">合并利润表</option>
+                        <option value="cash_flow">合并现金流量表</option>
+                        <option value="trial_balance">合并试算平衡表</option>
+                    </select>
+                </div>
+                <button onclick="generateConsolidationReport()" class="btn btn-primary">生成合并报表</button>
+                <div id="consolidation-result" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>合并过程信息</h3>
+                <div id="consolidation-process-info">
+                    <p>合并过程信息将在此显示</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 审计底稿标签页 -->
+        <div id="audit-tab" class="tab-content">
+            <div class="card">
+                <h3>审计底稿查阅</h3>
+                <div class="form-group">
+                    <label>底稿类型</label>
+                    <select id="working-paper-type">
+                        <option value="trial_balance">试算平衡表</option>
+                        <option value="adjustment">调整分录</option>
+                        <option value="elimination">抵销分录</option>
+                        <option value="consolidation">合并过程</option>
+                        <option value="reconciliation">往来核对</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>会计期间</label>
+                    <input type="text" id="audit-period" placeholder="例如：2024年度">
+                </div>
+                <button onclick="viewWorkingPapers()" class="btn btn-primary">查阅底稿</button>
+                <div id="working-papers-result" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>底稿输出</h3>
+                <div class="form-group">
+                    <label>输出格式</label>
+                    <select id="working-paper-format">
+                        <option value="excel">Excel</option>
+                        <option value="pdf">PDF</option>
+                        <option value="word">Word</option>
+                    </select>
+                </div>
+                <button onclick="exportWorkingPapers()" class="btn btn-primary">输出底稿</button>
+                <div id="export-result" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- 外部服务标签页 -->
+        <div id="services-tab" class="tab-content">
+            <div class="card">
+                <h3>外部服务状态</h3>
+                <div id="service-status" class="service-status">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统信息标签页 -->
+        <div id="system-tab" class="tab-content">
+            <div class="card">
+                <h3>系统信息</h3>
+                <div id="system-info">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+
+        // 切换标签页
+        function switchTab(tabName) {
+            // 更新标签按钮状态
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // 更新内容显示
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            // 加载对应数据
+            if (tabName === 'projects') {
+                loadProjects();
+            } else if (tabName === 'services') {
+                loadServiceStatus();
+            } else if (tabName === 'system') {
+                loadSystemInfo();
+            }
+        }
+
+        // 加载项目列表
+        async function loadProjects() {
+            try {
+                const response = await fetch(`${API_BASE}/projects`);
+                const data = await response.json();
+
+                const projectList = document.getElementById('project-list');
+                
+                if (data.success && data.projects.length > 0) {
+                    projectList.innerHTML = data.projects.map(project => `
+                        <div class="project-item" onclick="viewProject('${project.project_id}')">
+                            <h4>${project.project_name}</h4>
+                            <p><strong>编码:</strong> ${project.project_code}</p>
+                            <p><strong>客户:</strong> ${project.client_name || '未设置'}</p>
+                            <p><strong>创建时间:</strong> ${new Date(project.created_at).toLocaleDateString()}</p>
+                            <span class="status-badge status-${project.status}">${project.status}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    projectList.innerHTML = '<p style="text-align: center; color: #999;">暂无项目</p>';
+                }
+            } catch (error) {
+                console.error('加载项目失败:', error);
+                document.getElementById('project-list').innerHTML = 
+                    '<p style="text-align: center; color: #dc3545;">加载失败</p>';
+            }
+        }
+
+        // 查看项目详情
+        function viewProject(projectId) {
+            alert(`查看项目: ${projectId}\n详细页面开发中...`);
+        }
+
+        // 创建项目表单提交
+        document.getElementById('create-project-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const projectData = {
+                project_name: document.getElementById('project_name').value,
+                client_name: document.getElementById('client_name').value,
+                industry: document.getElementById('industry').value,
+                description: document.getElementById('description').value,
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/projects`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(projectData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('项目创建成功！');
+                    e.target.reset();
+                    loadProjects();
+                } else {
+                    alert('创建失败: ' + data.error);
+                }
+            } catch (error) {
+                console.error('创建项目失败:', error);
+                alert('创建失败: ' + error.message);
+            }
+        });
+
+        // 执行自然语言查询
+        async function executeNLQuery() {
+            const query = document.getElementById('nl-query-input').value;
+            const resultDiv = document.getElementById('nl-query-result');
+
+            if (!query) {
+                alert('请输入查询内容');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">查询中...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/query/nl`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="card">
+                        <h4>查询结果</h4>
+                        <pre style="background: white; padding: 15px; border-radius: 8px; overflow-x: auto;">
+${JSON.stringify(data, null, 2)}
+                        </pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">查询失败: ${error.message}</div>`;
+            }
+        }
+
+        // 数据查询类型变化事件
+        document.getElementById('data-query-type').addEventListener('change', function() {
+            const accountGroup = document.getElementById('account-code-group');
+            if (this.value === 'account_detail') {
+                accountGroup.style.display = 'block';
+            } else {
+                accountGroup.style.display = 'none';
+            }
+        });
+
+        // 执行数据查询
+        async function executeDataQuery() {
+            const queryType = document.getElementById('data-query-type').value;
+            const period = document.getElementById('query-period').value;
+            const accountCode = document.getElementById('account-code').value;
+            const resultDiv = document.getElementById('data-query-result');
+
+            if (!period) {
+                alert('请输入会计期间');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">查询中...</div>';
+
+            try {
+                let url, body;
+                
+                if (queryType === 'account_balance') {
+                    url = `${API_BASE}/reports/account-balance`;
+                    body = { period };
+                } else if (queryType === 'account_detail') {
+                    url = `${API_BASE}/reports/account-detail`;
+                    body = { period, account_code: accountCode };
+                } else {
+                    // 其他查询类型占位
+                    resultDiv.innerHTML = '<div class="alert alert-error">此查询类型尚未实现</div>';
+                    return;
+                }
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 显示表格数据
+                    const tableHtml = `
+                        <div class="card">
+                            <h4>查询结果</h4>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        ${Object.keys(data.data[0] || {}).map(key => `<th>${key}</th>`).join('')}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.map(row => `
+                                        <tr>
+                                            ${Object.values(row).map(value => `<td>${value}</td>`).join('')}
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    resultDiv.innerHTML = tableHtml;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">查询失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">查询失败: ${error.message}</div>`;
+            }
+        }
+
+        // 生成报表
+        async function generateReport() {
+            const reportType = document.getElementById('report-type').value;
+            const period = document.getElementById('report-period').value;
+            const format = document.getElementById('report-format').value;
+            const resultDiv = document.getElementById('report-result');
+
+            if (!period) {
+                alert('请输入会计期间');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">生成中...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/reports/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ report_type: reportType, period, format })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>报表生成成功</h4>
+                            <p>报表已生成并保存到: ${data.output_path}</p>
+                            <button class="btn btn-primary" onclick="window.open('${data.download_url}', '_blank')">下载报表</button>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">生成失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">生成失败: ${error.message}</div>`;
+            }
+        }
+
+        // 生成标准报表
+        function generateStandardReport(reportType) {
+            document.getElementById('report-type').value = reportType;
+            // 自动触发生成
+            generateReport();
+        }
+
+        // 生成合并报表
+        async function generateConsolidationReport() {
+            const parentEntity = document.getElementById('parent-entity').value;
+            const period = document.getElementById('consolidation-period').value;
+            const reportType = document.getElementById('consolidation-report-type').value;
+            const resultDiv = document.getElementById('consolidation-result');
+
+            if (!parentEntity || !period) {
+                alert('请选择母公司实体并输入会计期间');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">生成中...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/consolidation/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parent_entity_id: parentEntity, period, report_type: reportType })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>合并报表生成成功</h4>
+                            <p>合并报表已生成，包含 ${data.scope_entity_count} 个实体</p>
+                            <p>抵销分录: ${data.elimination_count} 条</p>
+                            <button class="btn btn-primary" onclick="viewConsolidationDetails('${data.consolidation_id}')">查看详情</button>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">生成失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">生成失败: ${error.message}</div>`;
+            }
+        }
+
+        // 查阅审计底稿
+        async function viewWorkingPapers() {
+            const paperType = document.getElementById('working-paper-type').value;
+            const period = document.getElementById('audit-period').value;
+            const resultDiv = document.getElementById('working-papers-result');
+
+            if (!period) {
+                alert('请输入会计期间');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/audit/working-papers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paper_type: paperType, period })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 显示底稿数据
+                    const tableHtml = `
+                        <div class="card">
+                            <h4>审计底稿 - ${paperType}</h4>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        ${Object.keys(data.data[0] || {}).map(key => `<th>${key}</th>`).join('')}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.map(row => `
+                                        <tr>
+                                            ${Object.values(row).map(value => `<td>${value}</td>`).join('')}
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    resultDiv.innerHTML = tableHtml;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">加载失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">加载失败: ${error.message}</div>`;
+            }
+        }
+
+        // 输出审计底稿
+        async function exportWorkingPapers() {
+            const paperType = document.getElementById('working-paper-type').value;
+            const period = document.getElementById('audit-period').value;
+            const format = document.getElementById('working-paper-format').value;
+            const resultDiv = document.getElementById('export-result');
+
+            if (!period) {
+                alert('请输入会计期间');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">输出中...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/audit/export`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paper_type: paperType, period, format })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>底稿输出成功</h4>
+                            <p>底稿已输出到: ${data.output_path}</p>
+                            <button class="btn btn-primary" onclick="window.open('${data.download_url}', '_blank')">下载底稿</button>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">输出失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">输出失败: ${error.message}</div>`;
+            }
+        }
+
+        // 加载服务状态
+        async function loadServiceStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/external/services/status`);
+                const data = await response.json();
+
+                const statusDiv = document.getElementById('service-status');
+
+                if (data.success) {
+                    const services = data.services;
+                    statusDiv.innerHTML = Object.entries(services).map(([name, online]) => `
+                        <div class="service-item service-${online ? 'online' : 'offline'}">
+                            <h4>${name}</h4>
+                            <p>${online ? '✅ 在线' : '❌ 离线'}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    statusDiv.innerHTML = '<p>加载失败</p>';
+                }
+            } catch (error) {
+                document.getElementById('service-status').innerHTML = 
+                    '<p style="color: #dc3545;">无法连接到服务</p>';
+            }
+        }
+
+        // 加载系统信息
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/system/info`);
+                const data = await response.json();
+
+                const infoDiv = document.getElementById('system-info');
+
+                if (data.success) {
+                    infoDiv.innerHTML = `
+                        <p><strong>系统名称:</strong> ${data.system.name}</p>
+                        <p><strong>版本:</strong> ${data.system.version}</p>
+                        <h4 style="margin-top: 20px;">已启用组件:</h4>
+                        <ul>
+                            ${Object.entries(data.system.components).map(([name, status]) => 
+                                `<li>${name}: ${status}</li>`
+                            ).join('')}
+                        </ul>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('system-info').innerHTML = 
+                    '<p style="color: #dc3545;">加载失败</p>';
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            loadProjects();
+        });
+    </script>
+</body>
+</html>
