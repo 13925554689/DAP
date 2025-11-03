@@ -40,23 +40,24 @@ def start_server():
         from web_gui.app import app
         
         print("\n🚀 服务器启动成功！")
-        print("📍 访问地址: http://localhost:5000")
+        print("📍 访问地址: http://localhost:5001")
         print("💡 按 Ctrl+C 停止服务器")
         print("\n⏳ 正在自动打开浏览器...\n")
         
         # 延迟1秒后自动打开浏览器
         def open_browser():
             time.sleep(1.5)
-            webbrowser.open('http://localhost:5000')
+            webbrowser.open('http://localhost:5001')
         
         browser_thread = threading.Thread(target=open_browser, daemon=True)
         browser_thread.start()
         
         # 排除备份文件目录，避免反复重载
         app.run(
-            host='0.0.0.0',
-            port=5000,
+            host='127.0.0.1',
+            port=5001,
             debug=True,
+            use_reloader=False,  # 禁用重载器以避免watchdog问题
             exclude_patterns=[
                 '*/data/github_backups/*',
                 '*/backups/*',
@@ -66,6 +67,8 @@ def start_server():
         )
     except Exception as e:
         print(f"\n❌ 启动失败: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == '__main__':

@@ -684,6 +684,124 @@ def get_working_papers():
             "error": str(e)
         }), 500
 
+@app.route('/api/audit/upload-standard-paper', methods=['POST'])
+def upload_standard_audit_paper():
+    """上传标准格式审计底稿"""
+    try:
+        # 获取上传的文件
+        if 'file' not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "缺少文件"
+            }), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({
+                "success": False,
+                "error": "未选择文件"
+            }), 400
+
+        paper_type = request.form.get('paper_type', 'standard')
+        period = request.form.get('period', '')
+
+        if not period:
+            return jsonify({
+                "success": False,
+                "error": "缺少会计期间参数"
+            }), 400
+
+        # 保存文件
+        if file:
+            filename = f"audit_paper_{paper_type}_{period}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            file_path = os.path.join('data', 'audit_papers', filename)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            file.save(file_path)
+
+            # 这里可以添加文件处理逻辑
+            # 例如：解析Excel文件并存储到数据库
+
+            return jsonify({
+                "success": True,
+                "filename": filename,
+                "file_path": file_path,
+                "paper_type": paper_type,
+                "period": period,
+                "message": "底稿上传成功"
+            })
+
+        return jsonify({
+            "success": False,
+            "error": "文件上传失败"
+        }), 500
+
+    except Exception as e:
+        logger.error(f"上传标准审计底稿失败: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/audit/upload-consolidation-paper', methods=['POST'])
+def upload_consolidation_audit_paper():
+    """上传合并审计底稿"""
+    try:
+        # 获取上传的文件
+        if 'file' not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "缺少文件"
+            }), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({
+                "success": False,
+                "error": "未选择文件"
+            }), 400
+
+        paper_type = request.form.get('paper_type', 'consolidation_trial_balance')
+        group_name = request.form.get('group_name', '')
+        period = request.form.get('period', '')
+
+        if not group_name or not period:
+            return jsonify({
+                "success": False,
+                "error": "缺少集团名称或会计期间参数"
+            }), 400
+
+        # 保存文件
+        if file:
+            filename = f"consolidation_paper_{paper_type}_{group_name}_{period}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            file_path = os.path.join('data', 'consolidation_papers', filename)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            file.save(file_path)
+
+            # 这里可以添加文件处理逻辑
+            # 例如：解析Excel文件并存储到数据库
+
+            return jsonify({
+                "success": True,
+                "filename": filename,
+                "file_path": file_path,
+                "paper_type": paper_type,
+                "group_name": group_name,
+                "period": period,
+                "message": "合并底稿上传成功"
+            })
+
+        return jsonify({
+            "success": False,
+            "error": "文件上传失败"
+        }), 500
+
+    except Exception as e:
+        logger.error(f"上传合并审计底稿失败: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 @app.route('/api/audit/export', methods=['POST'])
 def export_working_papers():
     """导出审计底稿"""

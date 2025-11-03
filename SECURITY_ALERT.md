@@ -8,7 +8,7 @@
 
 1. **撤销旧 Token（最高优先级）**
    - 访问：https://github.com/settings/tokens
-   - 找到泄漏的 Token：`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`
+   - 找到泄漏的 Token：`ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
    - 点击 "Revoke" 按钮立即撤销
 
 2. **生成新 Token**

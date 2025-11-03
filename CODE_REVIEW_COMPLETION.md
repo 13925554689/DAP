@@ -166,7 +166,7 @@ def __init__(self, db_path: str = 'data/dap_data.db'):
 1. **撤销泄漏的 GitHub Token**
    ```bash
    # 访问 https://github.com/settings/tokens
-   # 找到并撤销: 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
+   # 找到并撤销: ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
    ```
 
 2. **生成新 Token 并更新配置**

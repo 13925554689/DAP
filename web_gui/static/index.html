@@ -507,6 +507,56 @@
             </div>
             
             <div class="card">
+                <h3>输入标准格式审计底稿</h3>
+                <div class="form-group">
+                    <label>底稿类型</label>
+                    <select id="input-paper-type">
+                        <option value="standard">标准审计底稿</option>
+                        <option value="trial_balance">试算平衡表</option>
+                        <option value="adjustment">调整分录</option>
+                        <option value="reconciliation">往来核对</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>会计期间</label>
+                    <input type="text" id="input-audit-period" placeholder="例如：2024年度">
+                </div>
+                <div class="form-group">
+                    <label>底稿文件</label>
+                    <input type="file" id="audit-paper-file" accept=".xlsx,.xls,.csv">
+                </div>
+                <button onclick="uploadAuditPaper()" class="btn btn-primary">上传底稿</button>
+                <div id="upload-result" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>输入合并审计底稿</h3>
+                <div class="form-group">
+                    <label>合并底稿类型</label>
+                    <select id="consolidation-paper-type">
+                        <option value="consolidation_trial_balance">合并试算平衡表</option>
+                        <option value="elimination_entries">抵销分录</option>
+                        <option value="consolidation_working_paper">合并工作底稿</option>
+                        <option value="minority_interest">少数股东权益计算</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>集团名称</label>
+                    <input type="text" id="group-name" placeholder="例如：XX集团">
+                </div>
+                <div class="form-group">
+                    <label>会计期间</label>
+                    <input type="text" id="consolidation-audit-period" placeholder="例如：2024年度">
+                </div>
+                <div class="form-group">
+                    <label>底稿文件</label>
+                    <input type="file" id="consolidation-paper-file" accept=".xlsx,.xls,.csv">
+                </div>
+                <button onclick="uploadConsolidationPaper()" class="btn btn-primary">上传合并底稿</button>
+                <div id="consolidation-upload-result" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="card">
                 <h3>底稿输出</h3>
                 <div class="form-group">
                     <label>输出格式</label>
@@ -634,6 +684,107 @@
                 alert('创建失败: ' + error.message);
             }
         });
+
+        // 上传标准审计底稿
+        async function uploadAuditPaper() {
+            const paperType = document.getElementById('input-paper-type').value;
+            const period = document.getElementById('input-audit-period').value;
+            const fileInput = document.getElementById('audit-paper-file');
+            const resultDiv = document.getElementById('upload-result');
+
+            if (!period) {
+                alert('请输入会计期间');
+                return;
+            }
+
+            if (!fileInput.files.length) {
+                alert('请选择底稿文件');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">上传中...</div>';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('paper_type', paperType);
+                formData.append('period', period);
+
+                const response = await fetch(`${API_BASE}/audit/upload-standard-paper`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>底稿上传成功</h4>
+                            <p>文件: ${data.filename}</p>
+                            <p>类型: ${data.paper_type}</p>
+                            <p>期间: ${data.period}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">上传失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">上传失败: ${error.message}</div>`;
+            }
+        }
+
+        // 上传合并审计底稿
+        async function uploadConsolidationPaper() {
+            const paperType = document.getElementById('consolidation-paper-type').value;
+            const groupName = document.getElementById('group-name').value;
+            const period = document.getElementById('consolidation-audit-period').value;
+            const fileInput = document.getElementById('consolidation-paper-file');
+            const resultDiv = document.getElementById('consolidation-upload-result');
+
+            if (!groupName || !period) {
+                alert('请输入集团名称和会计期间');
+                return;
+            }
+
+            if (!fileInput.files.length) {
+                alert('请选择底稿文件');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">上传中...</div>';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('paper_type', paperType);
+                formData.append('group_name', groupName);
+                formData.append('period', period);
+
+                const response = await fetch(`${API_BASE}/audit/upload-consolidation-paper`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>合并底稿上传成功</h4>
+                            <p>文件: ${data.filename}</p>
+                            <p>类型: ${data.paper_type}</p>
+                            <p>集团: ${data.group_name}</p>
+                            <p>期间: ${data.period}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">上传失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">上传失败: ${error.message}</div>`;
+            }
+        }
 
         // 执行自然语言查询
         async function executeNLQuery() {
