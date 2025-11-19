@@ -12,14 +12,18 @@ import base64
 import logging
 import os
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+import urllib3
 
 import requests
 
 from config.settings import GitHubBackupConfig
+
+# 禁用SSL警告
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ class BackupStatus:
     success: Optional[bool] = None
     message: str = ""
     last_run: Optional[str] = None
-    details: Dict[str, Any] = None
+    details: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -56,6 +60,9 @@ class GitHubBackupManager:
         self.config = config
         self.logger = logger or LOGGER.getChild("GitHubBackupManager")
         self.session = session or requests.Session()
+
+        # 禁用SSL验证
+        self.session.verify = False
 
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
@@ -307,7 +314,7 @@ class GitHubBackupManager:
             payload["sha"] = existing_sha
 
         response = self.session.put(
-            url, headers=headers, json=payload, verify=self.config.verify_ssl
+            url, headers=headers, json=payload, verify=False
         )
         return response
 
@@ -316,7 +323,7 @@ class GitHubBackupManager:
     ) -> Optional[str]:
         """Return current file SHA if the remote object already exists."""
         try:
-            response = self.session.get(url, headers=headers, verify=self.config.verify_ssl)
+            response = self.session.get(url, headers=headers, verify=False)
         except requests.RequestException:  # pragma: no cover - defensive
             return None
 

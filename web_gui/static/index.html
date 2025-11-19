@@ -233,6 +233,51 @@
             border: 1px solid #f5c6cb;
         }
 
+        /* 模态框样式 */
+        .modal {
+            display: block;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            right: 20px;
+            top: 10px;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
         .service-status {
             display: flex;
             gap: 15px;
@@ -319,6 +364,7 @@
 
         <div class="tabs">
             <button class="tab active" onclick="switchTab('projects')">项目管理</button>
+            <button class="tab" onclick="switchTab('data-import')">数据导入</button>
             <button class="tab" onclick="switchTab('query')">智能查询</button>
             <button class="tab" onclick="switchTab('reports')">财务报表</button>
             <button class="tab" onclick="switchTab('consolidation')">合并报表</button>
@@ -355,6 +401,40 @@
             <div class="card">
                 <h3>我的项目</h3>
                 <div id="project-list" class="project-list">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据导入标签页 -->
+        <div id="data-import-tab" class="tab-content">
+            <div class="card">
+                <h3>数据导入</h3>
+                <div class="form-group">
+                    <label>选择项目</label>
+                    <select id="import-project-select">
+                        <option value="">请选择项目</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>数据类型</label>
+                    <select id="data-type">
+                        <option value="financial_data">财务数据</option>
+                        <option value="subject_data">科目数据</option>
+                        <option value="auxiliary_data">辅助核算数据</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>选择文件</label>
+                    <input type="file" id="data-file" accept=".xlsx,.xls,.csv">
+                </div>
+                <button onclick="importData()" class="btn btn-primary">导入数据</button>
+                <div id="import-result" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>导入历史</h3>
+                <div id="import-history" class="data-table-container">
                     <div class="loading">加载中...</div>
                 </div>
             </div>
@@ -612,6 +692,8 @@
             // 加载对应数据
             if (tabName === 'projects') {
                 loadProjects();
+            } else if (tabName === 'data-import') {
+                loadProjectsForImport();
             } else if (tabName === 'services') {
                 loadServiceStatus();
             } else if (tabName === 'system') {
@@ -640,6 +722,9 @@
                 } else {
                     projectList.innerHTML = '<p style="text-align: center; color: #999;">暂无项目</p>';
                 }
+                
+                // 同时更新数据导入页面的项目选择下拉框
+                loadProjectsForImport();
             } catch (error) {
                 console.error('加载项目失败:', error);
                 document.getElementById('project-list').innerHTML = 
@@ -647,9 +732,204 @@
             }
         }
 
+        // 为数据导入页面加载项目列表
+        async function loadProjectsForImport() {
+            try {
+                const response = await fetch(`${API_BASE}/projects`);
+                const data = await response.json();
+
+                const projectSelect = document.getElementById('import-project-select');
+                
+                if (data.success && data.projects.length > 0) {
+                    projectSelect.innerHTML = '<option value="">请选择项目</option>' + 
+                        data.projects.map(project => 
+                            `<option value="${project.project_id}">${project.project_name}</option>`
+                        ).join('');
+                }
+            } catch (error) {
+                console.error('加载项目列表失败:', error);
+            }
+        }
+
+        // 数据导入功能
+        async function importData() {
+            const projectId = document.getElementById('import-project-select').value;
+            const dataType = document.getElementById('data-type').value;
+            const fileInput = document.getElementById('data-file');
+            const resultDiv = document.getElementById('import-result');
+
+            if (!projectId) {
+                alert('请选择项目');
+                return;
+            }
+
+            if (!fileInput.files.length) {
+                alert('请选择要导入的文件');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">导入中...</div>';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('project_id', projectId);
+                formData.append('data_type', dataType);
+
+                const response = await fetch(`${API_BASE}/data/process`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>数据导入成功</h4>
+                            <p>处理统计: ${JSON.stringify(data.statistics || {})}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">导入失败: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">导入失败: ${error.message}</div>`;
+            }
+        }
+
         // 查看项目详情
         function viewProject(projectId) {
-            alert(`查看项目: ${projectId}\n详细页面开发中...`);
+            // 修改为显示项目详情模态框而不是简单的alert
+            showProjectDetail(projectId);
+        }
+
+        // 显示项目详情模态框
+        async function showProjectDetail(projectId) {
+            try {
+                const response = await fetch(`${API_BASE}/projects/${projectId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const project = data.project;
+                    
+                    // 创建模态框HTML
+                    const modalHtml = `
+                        <div id="project-modal" class="modal">
+                            <div class="modal-content">
+                                <span class="close" onclick="closeProjectModal()">&times;</span>
+                                <h2>项目详情</h2>
+                                <div class="project-detail-content">
+                                    <div class="form-group">
+                                        <label>项目名称</label>
+                                        <input type="text" id="edit-project-name" value="${project.project_name}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>客户名称</label>
+                                        <input type="text" id="edit-client-name" value="${project.client_name || ''}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>行业</label>
+                                        <input type="text" id="edit-industry" value="${project.industry || ''}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>项目描述</label>
+                                        <textarea id="edit-description" rows="3">${project.description || ''}</textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>状态</label>
+                                        <select id="edit-status">
+                                            <option value="active" ${project.status === 'active' ? 'selected' : ''}>进行中</option>
+                                            <option value="completed" ${project.status === 'completed' ? 'selected' : ''}>已完成</option>
+                                            <option value="deleted" ${project.status === 'deleted' ? 'selected' : ''}>已删除</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button class="btn btn-primary" onclick="updateProject('${project.project_id}')">保存修改</button>
+                                        <button class="btn btn-secondary" onclick="deleteProject('${project.project_id}')">删除项目</button>
+                                        <button class="btn btn-secondary" onclick="closeProjectModal()">取消</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 添加模态框到页面
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                } else {
+                    alert('获取项目详情失败: ' + data.error);
+                }
+            } catch (error) {
+                console.error('获取项目详情失败:', error);
+                alert('获取项目详情失败: ' + error.message);
+            }
+        }
+
+        // 关闭项目详情模态框
+        function closeProjectModal() {
+            const modal = document.getElementById('project-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // 更新项目信息
+        async function updateProject(projectId) {
+            const projectData = {
+                project_name: document.getElementById('edit-project-name').value,
+                client_name: document.getElementById('edit-client-name').value,
+                industry: document.getElementById('edit-industry').value,
+                description: document.getElementById('edit-description').value,
+                status: document.getElementById('edit-status').value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(projectData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('项目更新成功！');
+                    closeProjectModal();
+                    loadProjects(); // 重新加载项目列表
+                } else {
+                    alert('更新失败: ' + data.error);
+                }
+            } catch (error) {
+                console.error('更新项目失败:', error);
+                alert('更新失败: ' + error.message);
+            }
+        }
+
+        // 删除项目
+        async function deleteProject(projectId) {
+            if (!confirm('确定要删除这个项目吗？此操作不可恢复。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('项目删除成功！');
+                    closeProjectModal();
+                    loadProjects(); // 重新加载项目列表
+                } else {
+                    alert('删除失败: ' + data.error);
+                }
+            } catch (error) {
+                console.error('删除项目失败:', error);
+                alert('删除失败: ' + error.message);
+            }
         }
 
         // 创建项目表单提交
