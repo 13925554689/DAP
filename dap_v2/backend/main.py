@@ -25,15 +25,15 @@ DAP (Data Processing & Auditing Intelligence Agent) v2.0
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
     # Startup
-    print(f"🚀 {APP_NAME} v{APP_VERSION} starting...")
-    print("📊 Initializing database connections...")
-    print("✅ Application ready!")
+    print(f"[STARTUP] {APP_NAME} v{APP_VERSION} starting...")
+    print("[STARTUP] Initializing database connections...")
+    print("[STARTUP] Application ready!")
 
     yield
 
     # Shutdown
-    print("🛑 Shutting down...")
-    print("✅ Cleanup completed!")
+    print("[SHUTDOWN] Shutting down...")
+    print("[SHUTDOWN] Cleanup completed!")
 
 
 # Create FastAPI application
