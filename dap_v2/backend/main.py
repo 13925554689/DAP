@@ -1,9 +1,21 @@
 """
 DAP v2.0 Backend - Main Application Entry Point
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from sqlalchemy.orm import Session
+import logging
+
+from models.database import get_db, init_db
+from api import projects
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Application metadata
 APP_NAME = "DAP Audit System v2.0"
@@ -25,15 +37,25 @@ DAP (Data Processing & Auditing Intelligence Agent) v2.0
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
     # Startup
-    print(f"[STARTUP] {APP_NAME} v{APP_VERSION} starting...")
-    print("[STARTUP] Initializing database connections...")
-    print("[STARTUP] Application ready!")
+    logger.info("=" * 60)
+    logger.info(f"{APP_NAME} v{APP_VERSION} starting...")
+    logger.info("=" * 60)
+
+    # Initialize database
+    try:
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
+
+    logger.info("Application ready!")
 
     yield
 
     # Shutdown
-    print("[SHUTDOWN] Shutting down...")
-    print("[SHUTDOWN] Cleanup completed!")
+    logger.info("Shutting down...")
+    logger.info("Cleanup completed!")
 
 
 # Create FastAPI application
@@ -58,13 +80,27 @@ app.add_middleware(
 
 # Health Check Endpoint
 @app.get("/health")
-async def health_check():
+async def health_check(db: Session = Depends(get_db)):
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "app_name": APP_NAME,
-        "version": APP_VERSION,
-    }
+    try:
+        # Test database connection
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "healthy",
+            "app_name": APP_NAME,
+            "version": APP_VERSION,
+            "database": "connected"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "app_name": APP_NAME,
+            "version": APP_VERSION,
+            "database": "disconnected",
+            "error": str(e)
+        }
 
 
 @app.get("/")
@@ -77,8 +113,18 @@ async def root():
     }
 
 
-# API Routes (will be added incrementally)
-# from api.routes import project, workpaper, consolidation, review
+# API Routes
+app.include_router(
+    projects.router,
+    prefix="/api/projects",
+    tags=["Projects"]
+)
+
+# TODO: 添加其他路由
+# from api import users, clients, workpapers, consolidation, review
+# app.include_router(users.router, prefix="/api/users", tags=["Users"])
+# app.include_router(clients.router, prefix="/api/clients", tags=["Clients"])
+# app.include_router(workpapers.router, prefix="/api/workpapers", tags=["Workpapers"])
 
 
 if __name__ == "__main__":
