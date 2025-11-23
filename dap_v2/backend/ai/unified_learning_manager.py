@@ -7,9 +7,14 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
 import json
+import sys
+import os
 
-from .deepseek_client import DeepSeekClient
-from ..config import settings
+# 添加父目录到路径
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from ai.deepseek_client import DeepSeekClient
+from config import settings
 
 logger = logging.getLogger(__name__)
 

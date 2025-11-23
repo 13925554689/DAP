@@ -5,7 +5,12 @@ DeepSeek API Client
 import logging
 import httpx
 from typing import Dict, List, Optional, Any
-from ..config import settings
+import sys
+import os
+
+# 添加父目录到路径
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import settings
 
 logger = logging.getLogger(__name__)
 
