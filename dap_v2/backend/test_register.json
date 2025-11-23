@@ -1,0 +1,8 @@
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "Test@1234",
+  "full_name": "测试用户",
+  "department": "审计部",
+  "position": "审计员"
+}
