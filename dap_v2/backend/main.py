@@ -18,6 +18,8 @@ from config import settings
 from models.database import get_db, init_db
 from api import projects, users
 from routers import evidence_router
+from routers.models import router as models_router
+from routers.evidence_templates import router as templates_router
 
 # Configure logging with UTF-8 encoding
 logging.basicConfig(
@@ -151,6 +153,20 @@ app.include_router(
     evidence_router,
     prefix="/api",
     tags=["Evidence Management"]
+)
+
+# Model Management API
+app.include_router(
+    models_router,
+    prefix="/api",
+    tags=["AI Model Management"]
+)
+
+# Evidence Template Management API
+app.include_router(
+    templates_router,
+    prefix="/api",
+    tags=["Evidence Template Management"]
 )
 
 # TODO: 添加其他路由
