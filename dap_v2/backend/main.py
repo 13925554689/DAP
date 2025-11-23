@@ -3,18 +3,29 @@ DAP v2.0 Backend - Main Application Entry Point
 """
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import ORJSONResponse
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
 import logging
+import sys
+
+# 修复中文编码问题
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
 
 from config import settings
 from models.database import get_db, init_db
 from api import projects, users
+from routers import evidence_router
 
-# Configure logging
+# Configure logging with UTF-8 encoding
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -74,6 +85,7 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    default_response_class=ORJSONResponse,  # 使用ORJSON支持中文
 )
 
 # CORS Configuration
@@ -132,6 +144,13 @@ app.include_router(
     projects.router,
     prefix="/api/projects",
     tags=["Projects"]
+)
+
+# Evidence Management API
+app.include_router(
+    evidence_router,
+    prefix="/api",
+    tags=["Evidence Management"]
 )
 
 # TODO: 添加其他路由
