@@ -20,7 +20,7 @@ from schemas import (
     ProjectStatistics
 )
 
-router = APIRouter(prefix="/api/v2/projects", tags=["Projects"])
+router = APIRouter(tags=["Projects"])
 
 
 # ==================== Project Types ====================
