@@ -7,8 +7,9 @@ from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
 import logging
 
+from config import settings
 from models.database import get_db, init_db
-from api import projects
+from api import projects, users
 
 # Configure logging
 logging.basicConfig(
