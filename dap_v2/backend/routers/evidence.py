@@ -22,6 +22,8 @@ from ..ai.unified_learning_manager import UnifiedLearningManager
 from ..ai.deepseek_client import DeepSeekClient
 from ..ai.paddleocr_service import get_ocr_service
 from ..ai.auto_linking_service import get_auto_linking_service
+from ..ai.batch_processing import get_batch_service
+from ..ai.export_service import get_export_service
 
 router = APIRouter(prefix="/evidence", tags=["审计证据管理"])
 
@@ -30,6 +32,8 @@ learning_manager = UnifiedLearningManager()
 deepseek_client = DeepSeekClient()
 ocr_service = get_ocr_service()
 linking_service = get_auto_linking_service()
+batch_service = get_batch_service()
+export_service = get_export_service()
 
 
 # ===== 1-10: 证据CRUD操作 =====
