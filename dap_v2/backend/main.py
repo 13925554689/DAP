@@ -19,18 +19,25 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Application metadata
-APP_NAME = "DAP Audit System v2.0"
-APP_VERSION = "2.0.0"
+APP_NAME = settings.APP_NAME
+APP_VERSION = settings.APP_VERSION
 APP_DESCRIPTION = """
 DAP (Data Processing & Auditing Intelligence Agent) v2.0
 智能审计数据平台 - 审计底稿与合并报表系统
 
 核心功能:
+- 用户认证与权限管理 (JWT + RBAC)
 - 项目管理系统 (IPO/年报/财务/税务审计)
 - 审计底稿编制与管理
 - 合并报表与抵消引擎
 - 三级复核流程
 - AI辅助审计分析
+
+安全特性:
+- JWT Token认证
+- 密码强度验证
+- 角色级别权限控制
+- 完整操作审计追踪
 """
 
 
@@ -72,7 +79,7 @@ app = FastAPI(
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:8080"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -116,14 +123,19 @@ async def root():
 
 # API Routes
 app.include_router(
+    users.router,
+    prefix="/api",
+    tags=["Users & Authentication"]
+)
+
+app.include_router(
     projects.router,
     prefix="/api/projects",
     tags=["Projects"]
 )
 
 # TODO: 添加其他路由
-# from api import users, clients, workpapers, consolidation, review
-# app.include_router(users.router, prefix="/api/users", tags=["Users"])
+# from api import clients, workpapers, consolidation, review
 # app.include_router(clients.router, prefix="/api/clients", tags=["Clients"])
 # app.include_router(workpapers.router, prefix="/api/workpapers", tags=["Workpapers"])
 
