@@ -202,8 +202,9 @@ class EvidenceAutoLinkingService:
             if isinstance(time2, str):
                 time2 = datetime.fromisoformat(time2.replace('Z', '+00:00'))
 
-            # 计算天数差
-            diff_days = abs((time1 - time2).days)
+            # 计算时间差(使用总秒数,更精确)
+            diff_seconds = abs((time1 - time2).total_seconds())
+            diff_days = diff_seconds / 86400.0  # 转换为天数(浮点数)
 
             if diff_days > self.time_window_days:
                 return 0.0
