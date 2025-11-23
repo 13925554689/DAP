@@ -60,6 +60,31 @@ class Settings(BaseSettings):
         ".xlsx", ".xls", ".csv", ".pdf", ".doc", ".docx"
     ]
 
+    # AI/LLM Configuration
+    LLM_PROVIDER: str = "deepseek"  # deepseek, openai, local
+    DEEPSEEK_API_KEY: Optional[str] = None
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4"
+    LLM_TEMPERATURE: float = 0.7
+    LLM_MAX_TOKENS: int = 2000
+    LLM_TIMEOUT: int = 30
+
+    # AI Learning Configuration
+    AI_LEARNING_ENABLED: bool = True
+    AI_MODEL_PATH: str = "./ai_models"
+    AI_TRAINING_BATCH_SIZE: int = 32
+    AI_LEARNING_RATE: float = 0.001
+    AI_MIN_TRAINING_SAMPLES: int = 100
+
+    # PaddleOCR Configuration
+    PADDLEOCR_ENABLED: bool = True
+    PADDLEOCR_LANG: str = "ch"
+    PADDLEOCR_USE_GPU: bool = False
+    PADDLEOCR_DET_MODEL_DIR: Optional[str] = None
+    PADDLEOCR_REC_MODEL_DIR: Optional[str] = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
