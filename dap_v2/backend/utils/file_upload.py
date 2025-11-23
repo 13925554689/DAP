@@ -13,6 +13,7 @@ import shutil
 
 from fastapi import UploadFile, HTTPException, status
 from config import settings
+from utils.ocr_service import ocr_service
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +169,9 @@ class FileUploadService:
         file: UploadFile,
         project_id: str,
         evidence_category: str,
-        allowed_types: Optional[List[str]] = None
+        allowed_types: Optional[List[str]] = None,
+        enable_ocr: bool = True,
+        evidence_type: str = None
     ) -> dict:
         """
         保存上传文件
@@ -212,7 +215,7 @@ class FileUploadService:
 
             logger.info(f"File saved: {storage_path} ({file_size} bytes)")
 
-            return {
+            file_info = {
                 "filename": unique_filename,
                 "original_filename": file.filename,
                 "file_path": str(storage_path.relative_to(self.upload_dir)),
@@ -222,6 +225,18 @@ class FileUploadService:
                 "mime_type": mime_type or "application/octet-stream",
                 "storage_path": str(storage_path)
             }
+
+            # OCR处理 (如果是图片或PDF)
+            if enable_ocr:
+                ocr_result = await self._process_ocr(storage_path, evidence_type)
+                if ocr_result.get('success'):
+                    file_info['ocr_result'] = ocr_result
+                    file_info['ocr_processed'] = True
+                    logger.info(f"OCR completed with confidence: {ocr_result.get('confidence', 0)}%")
+                else:
+                    file_info['ocr_processed'] = False
+
+            return file_info
 
         except Exception as e:
             logger.error(f"Error saving file: {str(e)}")
@@ -283,6 +298,44 @@ class FileUploadService:
         # TODO: 实现文件哈希索引查询
         # 可以在数据库中查询是否有相同哈希的文件
         return None
+
+    async def _process_ocr(self, file_path: Path, evidence_type: str = None) -> dict:
+        """
+        处理文件OCR
+
+        Args:
+            file_path: 文件路径
+            evidence_type: 证据类型
+
+        Returns:
+            OCR结果
+        """
+        file_ext = file_path.suffix.lower()
+
+        # 图片文件
+        if file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff']:
+            ocr_result = await ocr_service.process_image(str(file_path))
+
+            # 提取结构化数据
+            if ocr_result.get('success') and evidence_type:
+                structured_data = ocr_service.extract_structured_data(ocr_result, evidence_type)
+                ocr_result['extracted_data'] = structured_data
+
+            return ocr_result
+
+        # PDF文件
+        elif file_ext == '.pdf':
+            ocr_result = await ocr_service.process_pdf(str(file_path))
+
+            # 提取结构化数据
+            if ocr_result.get('success') and evidence_type:
+                structured_data = ocr_service.extract_structured_data(ocr_result, evidence_type)
+                ocr_result['extracted_data'] = structured_data
+
+            return ocr_result
+
+        else:
+            return {'success': False, 'message': 'File type not supported for OCR'}
 
     def get_file_info(self, file_path: str) -> dict:
         """
