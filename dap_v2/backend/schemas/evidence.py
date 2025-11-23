@@ -315,3 +315,291 @@ class OCRResult(BaseModel):
     line_count: int
     extracted_data: Optional[Dict[str, Any]]
     processed_at: str
+
+
+# ============= Advanced Validators =============
+
+class FileUploadValidator:
+    """文件上传验证器"""
+
+    # 允许的文件扩展名
+    ALLOWED_EXTENSIONS = {
+        'image': {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.heic'},
+        'document': {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.rtf'},
+        'archive': {'.zip', '.rar', '.7z', '.tar', '.gz'}
+    }
+
+    # 最大文件大小 (50MB)
+    MAX_FILE_SIZE = 50 * 1024 * 1024
+
+    # MIME类型映射
+    MIME_TYPES = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.pdf': 'application/pdf',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }
+
+    @classmethod
+    def validate_file_extension(cls, filename: str) -> bool:
+        """验证文件扩展名"""
+        if not filename or '.' not in filename:
+            return False
+        ext = '.' + filename.rsplit('.', 1)[-1].lower()
+        all_allowed = set().union(*cls.ALLOWED_EXTENSIONS.values())
+        return ext in all_allowed
+
+    @classmethod
+    def validate_file_size(cls, size: int) -> bool:
+        """验证文件大小"""
+        return 0 < size <= cls.MAX_FILE_SIZE
+
+    @classmethod
+    def get_file_type(cls, filename: str) -> str:
+        """获取文件类型"""
+        if not filename or '.' not in filename:
+            return 'unknown'
+        ext = '.' + filename.rsplit('.', 1)[-1].lower()
+        for file_type, extensions in cls.ALLOWED_EXTENSIONS.items():
+            if ext in extensions:
+                return file_type
+        return 'unknown'
+
+    @classmethod
+    def get_mime_type(cls, filename: str) -> Optional[str]:
+        """获取MIME类型"""
+        if not filename or '.' not in filename:
+            return None
+        ext = '.' + filename.rsplit('.', 1)[-1].lower()
+        return cls.MIME_TYPES.get(ext)
+
+    @classmethod
+    def validate_filename(cls, filename: str) -> bool:
+        """验证文件名（排除危险字符）"""
+        dangerous_chars = {'/', '\\', '..', '<', '>', ':', '"', '|', '?', '*'}
+        return not any(char in filename for char in dangerous_chars)
+
+
+class IDValidator:
+    """ID验证器"""
+
+    @staticmethod
+    def validate_uuid(value: str) -> bool:
+        """验证UUID格式"""
+        import re
+        if not value:
+            return False
+        uuid_pattern = re.compile(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+            re.IGNORECASE
+        )
+        return bool(uuid_pattern.match(value))
+
+    @staticmethod
+    def validate_evidence_code(value: str) -> bool:
+        """验证证据编号格式 (EV + 时间戳)"""
+        import re
+        if not value:
+            return False
+        return bool(re.match(r'^EV\d{14,}$', value))
+
+
+class BusinessValidator:
+    """业务逻辑验证器"""
+
+    @staticmethod
+    def validate_amount(value: Optional[Decimal]) -> bool:
+        """验证金额"""
+        if value is None:
+            return True
+        return Decimal('-999999999.99') <= value <= Decimal('999999999.99')
+
+    @staticmethod
+    def validate_date_range(start_date: Optional[date], end_date: Optional[date]) -> bool:
+        """验证日期范围"""
+        if start_date and end_date:
+            return start_date <= end_date
+        return True
+
+    @staticmethod
+    def validate_confidence(value: Optional[float]) -> bool:
+        """验证置信度"""
+        if value is None:
+            return True
+        return 0.0 <= value <= 1.0
+
+    @staticmethod
+    def validate_confidentiality_level(value: str) -> bool:
+        """验证保密等级"""
+        allowed_levels = {'public', 'internal', 'confidential', 'secret', 'top_secret', 'normal'}
+        return value.lower() in allowed_levels
+
+    @staticmethod
+    def validate_review_decision(value: str) -> bool:
+        """验证审核决定"""
+        allowed_decisions = {'approved', 'rejected', 'revised', 'pending'}
+        return value.lower() in allowed_decisions
+
+
+class TextValidator:
+    """文本内容验证器"""
+
+    @staticmethod
+    def validate_no_sql_injection(text: str) -> bool:
+        """防止SQL注入"""
+        dangerous_patterns = [
+            'drop table', 'delete from', 'insert into', 'update set',
+            'exec(', 'execute(', 'script>', '--', '/*', '*/',
+            'union select', 'or 1=1', 'or true'
+        ]
+        text_lower = text.lower()
+        return not any(pattern in text_lower for pattern in dangerous_patterns)
+
+    @staticmethod
+    def validate_no_xss(text: str) -> bool:
+        """防止XSS攻击"""
+        dangerous_patterns = ['<script', 'javascript:', 'onerror=', 'onclick=', 'onload=']
+        text_lower = text.lower()
+        return not any(pattern in text_lower for pattern in dangerous_patterns)
+
+    @staticmethod
+    def sanitize_text(text: str, max_length: int = 10000) -> str:
+        """清理文本"""
+        if not text:
+            return ""
+        # 移除控制字符
+        import re
+        text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
+        # 截断过长文本
+        if len(text) > max_length:
+            text = text[:max_length]
+        return text.strip()
+
+
+class PaginationValidator:
+    """分页参数验证器"""
+
+    MAX_PAGE_SIZE = 100
+    DEFAULT_PAGE_SIZE = 20
+
+    @classmethod
+    def validate_pagination(cls, skip: int, limit: int) -> tuple:
+        """验证并修正分页参数"""
+        # 确保skip >= 0
+        skip = max(0, skip)
+        # 确保limit在合理范围内
+        limit = max(1, min(limit, cls.MAX_PAGE_SIZE))
+        return skip, limit
+
+    @classmethod
+    def calculate_pagination(cls, total: int, skip: int, limit: int) -> Dict[str, Any]:
+        """计算分页信息"""
+        skip, limit = cls.validate_pagination(skip, limit)
+        total_pages = (total + limit - 1) // limit if limit > 0 else 0
+        current_page = (skip // limit) + 1 if limit > 0 else 1
+
+        return {
+            'total': total,
+            'skip': skip,
+            'limit': limit,
+            'current_page': current_page,
+            'total_pages': total_pages,
+            'has_next': skip + limit < total,
+            'has_prev': skip > 0
+        }
+
+
+# ============= Enhanced Request Schemas with Validation =============
+
+class EvidenceUploadEnhanced(EvidenceUpload):
+    """增强的证据上传请求（带完整验证）"""
+
+    @validator('title')
+    def validate_title(cls, v):
+        """验证标题"""
+        if not v or not v.strip():
+            raise ValueError("证据标题不能为空")
+        if not TextValidator.validate_no_xss(v):
+            raise ValueError("标题包含不允许的字符")
+        if not TextValidator.validate_no_sql_injection(v):
+            raise ValueError("标题包含危险字符")
+        return TextValidator.sanitize_text(v, 255)
+
+    @validator('description')
+    def validate_description(cls, v):
+        """验证描述"""
+        if v:
+            if not TextValidator.validate_no_xss(v):
+                raise ValueError("描述包含不允许的字符")
+            return TextValidator.sanitize_text(v, 2000)
+        return v
+
+    @validator('amount')
+    def validate_amount(cls, v):
+        """验证金额"""
+        if v is not None:
+            if not BusinessValidator.validate_amount(v):
+                raise ValueError("金额超出允许范围")
+        return v
+
+    @validator('expiry_date')
+    def validate_expiry_date(cls, v, values):
+        """验证到期日期"""
+        if v and 'issue_date' in values:
+            issue_date = values['issue_date']
+            if issue_date and v < issue_date:
+                raise ValueError("到期日期不能早于签发日期")
+        return v
+
+    @validator('confidentiality_level')
+    def validate_confidentiality(cls, v):
+        """验证保密等级"""
+        if not BusinessValidator.validate_confidentiality_level(v):
+            raise ValueError("无效的保密等级")
+        return v.lower()
+
+    @validator('tags')
+    def validate_tags(cls, v):
+        """验证标签"""
+        if v:
+            if len(v) > 20:
+                raise ValueError("标签数量不能超过20个")
+            # 清理每个标签
+            cleaned_tags = []
+            for tag in v:
+                if tag and tag.strip():
+                    cleaned = TextValidator.sanitize_text(tag, 50)
+                    if cleaned:
+                        cleaned_tags.append(cleaned)
+            return cleaned_tags[:20]  # 最多20个
+        return []
+
+
+class EvidenceQueryEnhanced(EvidenceQuery):
+    """增强的查询参数（带验证）"""
+
+    @validator('search')
+    def validate_search(cls, v):
+        """验证搜索关键词"""
+        if v:
+            if len(v) > 200:
+                raise ValueError("搜索关键词过长")
+            if not TextValidator.validate_no_sql_injection(v):
+                raise ValueError("搜索关键词包含危险字符")
+            return TextValidator.sanitize_text(v, 200)
+        return v
+
+    @validator('limit')
+    def validate_limit(cls, v):
+        """验证每页数量"""
+        return min(v, PaginationValidator.MAX_PAGE_SIZE)
+
+    @validator('skip')
+    def validate_skip(cls, v):
+        """验证跳过数量"""
+        return max(0, v)
