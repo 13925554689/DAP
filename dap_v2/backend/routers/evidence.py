@@ -20,12 +20,16 @@ from ..models import (
 from ..config import settings
 from ..ai.unified_learning_manager import UnifiedLearningManager
 from ..ai.deepseek_client import DeepSeekClient
+from ..ai.paddleocr_service import get_ocr_service
+from ..ai.auto_linking_service import get_auto_linking_service
 
 router = APIRouter(prefix="/evidence", tags=["审计证据管理"])
 
-# 初始化AI学习管理器
+# 初始化AI服务
 learning_manager = UnifiedLearningManager()
 deepseek_client = DeepSeekClient()
+ocr_service = get_ocr_service()
+linking_service = get_auto_linking_service()
 
 
 # ===== 1-10: 证据CRUD操作 =====
@@ -251,22 +255,55 @@ async def ocr_extract(evidence_id: str, db: Session = Depends(get_db), current_u
     if not evidence:
         raise HTTPException(status_code=404, detail="证据不存在")
 
-    # TODO: 集成PaddleOCR
-    # 这里返回模拟数据
-    ocr_text = "OCR提取的文本内容..."
-    ocr_confidence = 0.92
+    if not evidence.file_path or not os.path.exists(evidence.file_path):
+        raise HTTPException(status_code=404, detail="文件不存在")
 
-    evidence.ocr_text = ocr_text
-    evidence.ocr_confidence = ocr_confidence
-    evidence.status = EvidenceStatus.PROCESSING
+    try:
+        # 使用PaddleOCR提取文字
+        ocr_result = ocr_service.extract_text(
+            evidence.file_path,
+            return_boxes=True,
+            return_confidence=True
+        )
 
-    db.commit()
+        if 'error' in ocr_result:
+            raise HTTPException(status_code=500, detail=f"OCR提取失败: {ocr_result['error']}")
 
-    return {
-        "message": "OCR提取完成",
-        "ocr_text": ocr_text,
-        "confidence": ocr_confidence
-    }
+        # 更新证据信息
+        evidence.ocr_text = ocr_result['text']
+        evidence.ocr_confidence = ocr_result['confidence']
+        evidence.content_text = ocr_result['text']
+        evidence.status = EvidenceStatus.PROCESSING
+
+        # 保存详细信息到字段表
+        for idx, detail in enumerate(ocr_result.get('details', [])):
+            field = EvidenceField(
+                evidence_id=evidence_id,
+                field_name=f"line_{idx + 1}",
+                field_value=detail['text'],
+                field_type="text",
+                extraction_method="OCR",
+                confidence=detail['confidence'],
+                position_x=int(detail['box'][0][0]),
+                position_y=int(detail['box'][0][1]),
+                position_width=int(detail['box'][1][0] - detail['box'][0][0]),
+                position_height=int(detail['box'][2][1] - detail['box'][0][1])
+            )
+            db.add(field)
+
+        db.commit()
+
+        return {
+            "message": "OCR提取完成",
+            "ocr_text": ocr_result['text'],
+            "confidence": ocr_result['confidence'],
+            "line_count": ocr_result['line_count'],
+            "lines": ocr_result['lines']
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"OCR提取失败: {str(e)}")
 
 
 @router.post("/{evidence_id}/ocr/correct")
@@ -547,23 +584,104 @@ async def auto_link_evidences(evidence_id: str, db: Session = Depends(get_db)):
     if not evidence:
         raise HTTPException(status_code=404, detail="证据不存在")
 
-    # TODO: 实现AI智能关联逻辑
-    # 1. 基于关键词相似度
-    # 2. 基于金额匹配
-    # 3. 基于时间关联
+    # 获取同项目的所有证据
+    all_evidences = db.query(Evidence).filter(
+        Evidence.project_id == evidence.project_id,
+        Evidence.id != evidence_id
+    ).all()
 
-    return {"message": "智能关联分析完成", "suggested_relations": []}
+    # 转换为字典格式
+    current_evidence = {
+        'id': evidence.id,
+        'evidence_name': evidence.evidence_name,
+        'evidence_type': evidence.evidence_type.value,
+        'content_text': evidence.content_text or evidence.ocr_text or '',
+        'amount': evidence.amount,
+        'related_accounts': evidence.related_accounts,
+        'created_at': evidence.created_at.isoformat()
+    }
+
+    other_evidences = [
+        {
+            'id': e.id,
+            'evidence_name': e.evidence_name,
+            'evidence_type': e.evidence_type.value,
+            'content_text': e.content_text or e.ocr_text or '',
+            'amount': e.amount,
+            'related_accounts': e.related_accounts,
+            'created_at': e.created_at.isoformat()
+        }
+        for e in all_evidences
+    ]
+
+    # 智能关联分析
+    related_evidences = linking_service.find_related_evidences(
+        current_evidence,
+        other_evidences,
+        max_results=10
+    )
+
+    return {
+        "message": "智能关联分析完成",
+        "evidence_id": evidence_id,
+        "suggested_relations": related_evidences,
+        "total_candidates": len(other_evidences)
+    }
 
 
 @router.get("/{evidence_id}/graph")
 async def get_evidence_graph(evidence_id: str, depth: int = Query(2, ge=1, le=5), db: Session = Depends(get_db)):
     """20. 获取证据关系图谱"""
-    # TODO: 构建证据关系图
-    # 递归查询关联证据,生成图谱数据
+    evidence = db.query(Evidence).filter(Evidence.id == evidence_id).first()
+    if not evidence:
+        raise HTTPException(status_code=404, detail="证据不存在")
+
+    # 获取所有关联关系
+    all_relations = db.query(EvidenceRelation).filter(
+        (EvidenceRelation.evidence_id == evidence_id) |
+        (EvidenceRelation.related_evidence_id == evidence_id)
+    ).all()
+
+    # 转换为字典格式
+    relations_data = [
+        {
+            'evidence_id': r.evidence_id,
+            'related_evidence_id': r.related_evidence_id,
+            'relation_type': r.relation_type,
+            'confidence': r.confidence or 1.0
+        }
+        for r in all_relations
+    ]
+
+    # 构建图谱
+    graph = linking_service.build_evidence_graph(
+        evidence_id,
+        relations_data,
+        depth=depth
+    )
+
+    # 补充节点信息
+    node_ids = [node['id'] for node in graph['nodes']]
+    evidences = db.query(Evidence).filter(Evidence.id.in_(node_ids)).all()
+
+    evidence_map = {
+        e.id: {
+            'evidence_name': e.evidence_name,
+            'evidence_type': e.evidence_type.value,
+            'status': e.status.value,
+            'created_at': e.created_at.isoformat()
+        }
+        for e in evidences
+    }
+
+    # 更新节点信息
+    for node in graph['nodes']:
+        if node['id'] in evidence_map:
+            node.update(evidence_map[node['id']])
 
     return {
-        "nodes": [],
-        "edges": []
+        "message": "证据关系图谱生成完成",
+        "graph": graph
     }
 
 
