@@ -3,16 +3,13 @@ DAP v2.0 - Password Utilities
 Password hashing, verification and strength validation
 """
 import re
-from passlib.context import CryptContext
+import bcrypt
 from typing import Tuple
 import logging
 
 from config import settings
 
 logger = logging.getLogger(__name__)
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
@@ -25,7 +22,11 @@ def hash_password(password: str) -> str:
     Returns:
         Hashed password
     """
-    return pwd_context.hash(password)
+    # Bcrypt has a 72-byte limit
+    password_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -40,7 +41,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         True if password matches, False otherwise
     """
     try:
-        return pwd_context.verify(plain_password, hashed_password)
+        password_bytes = plain_password.encode('utf-8')[:72]
+        hashed_bytes = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
     except Exception as e:
         logger.error(f"Password verification error: {str(e)}")
         return False
